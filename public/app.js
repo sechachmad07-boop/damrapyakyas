@@ -183,7 +183,7 @@ $('processBtn').addEventListener('click',()=>{
   $('processBtn').textContent='⏳ Memproses...';
   setTimeout(async ()=>{
     try{
-      const result=embedImageData(currentImageData,username,50,3);
+      const result=embedImageData(currentImageData,username,80,3);
       watermarkedImageData=result.imageData;
       let url;
       try { url=URL.createObjectURL(await imageDataToBlob(result.imageData)); }
@@ -312,7 +312,7 @@ $('detectBtn').addEventListener('click', () => {
       } else {
         $('detectResult').innerHTML = `
           <div class="value bad">Tidak terdeteksi watermark yang valid pada foto ini.</div>
-          <div class="label" style="margin-top:.6rem;">Pastikan foto adalah hasil watermark Takasatmata dan belum diubah/kompresi berlebih.</div>`;
+          <div class="label" style="margin-top:.6rem;">Tips: gunakan foto hasil download (PNG) dari aplikasi ini, jangan screenshot/kompresi. Jika tetap gagal, coba di browser yang sama dengan saat watermark dibuat.</div>`;
         toast('Tidak terdeteksi watermark', 'error');
       }
     } catch (e) {
