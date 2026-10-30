@@ -85,7 +85,7 @@ function analyzeFile(file){
     try {
       canvas=document.createElement('canvas');
       canvas.width=img.width;canvas.height=img.height;
-      ctx=canvas.getContext('2d');ctx.drawImage(img,0,0);
+      ctx=canvas.getContext('2d',{colorSpace:'srgb'});ctx.drawImage(img,0,0);
       currentImageData=ctx.getImageData(0,0,img.width,img.height);
     } catch(e) {
       toast('Gagal memproses gambar: '+e.message,'error');
@@ -221,11 +221,11 @@ function imageDataToBlob(imageData){
   return new Promise((resolve,reject)=>{
     const canvas=document.createElement('canvas');
     canvas.width=imageData.width;canvas.height=imageData.height;
-    const ctx=canvas.getContext('2d');ctx.putImageData(imageData,0,0);
+    const ctx=canvas.getContext('2d',{colorSpace:'srgb'});ctx.putImageData(imageData,0,0);
     canvas.toBlob((b)=>{ if(b) resolve(b); else reject(new Error('Gagal membuat blob gambar')); },'image/png');
   });
 }
-function imageDataToDataURLFallback(imageData){const c=document.createElement('canvas');c.width=imageData.width;c.height=imageData.height;const ctx=c.getContext('2d');ctx.putImageData(imageData,0,0);return c.toDataURL('image/png');}
+function imageDataToDataURLFallback(imageData){const c=document.createElement('canvas');c.width=imageData.width;c.height=imageData.height;const ctx=c.getContext('2d',{colorSpace:'srgb'});ctx.putImageData(imageData,0,0);return c.toDataURL('image/png');}
 function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 $('processBtn').addEventListener('click',()=>{
@@ -328,7 +328,7 @@ function analyzeDetectFile(file) {
     try {
       canvas = document.createElement('canvas');
       canvas.width = img.width; canvas.height = img.height;
-      ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
+      ctx = canvas.getContext('2d', {colorSpace:'srgb'}); ctx.drawImage(img, 0, 0);
       detectImageData = ctx.getImageData(0, 0, img.width, img.height);
     } catch (e) {
       toast('Gagal memproses gambar: ' + e.message, 'error');
