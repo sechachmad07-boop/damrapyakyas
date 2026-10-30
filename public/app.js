@@ -51,12 +51,19 @@ function analyzeFile(file){
   const url=URL.createObjectURL(file);
   const img=new Image();
   img.onload=()=>{
-    const canvas=document.createElement('canvas');
-    canvas.width=img.width;canvas.height=img.height;
-    const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0);
-    currentImageData=ctx.getImageData(0,0,img.width,img.height);
+    // tampilkan preview dulu agar terlihat di mobile
     $('previewImg').src=url;
     $('previewCard').style.display='';
+    let canvas,ctx;
+    try {
+      canvas=document.createElement('canvas');
+      canvas.width=img.width;canvas.height=img.height;
+      ctx=canvas.getContext('2d');ctx.drawImage(img,0,0);
+      currentImageData=ctx.getImageData(0,0,img.width,img.height);
+    } catch(e) {
+      toast('Gagal memproses gambar: '+e.message,'error');
+      return;
+    }
     const W=img.width,H=img.height;
     const blocks=Math.floor(W/8)*Math.floor(H/8);
     const cap3=Math.max(0,Math.floor((blocks/3-16)/8));

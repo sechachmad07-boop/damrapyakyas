@@ -32,7 +32,7 @@ body {
 
 .preview-row { display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; }
 .preview-box { flex: 1; min-width: 240px; background: rgba(0,0,0,0.25); border-radius: 10px; padding: .6rem; display: flex; align-items: center; justify-content: center; position: relative; }
-.preview-box img { max-width: 100%; max-height: 420px; border-radius: 6px; }
+.preview-box img { max-width: 100%; width: auto; height: auto; max-height: 420px; object-fit: contain; border-radius: 6px; display: block; }
 .info-box { flex: 1; min-width: 260px; }
 .info-table { width: 100%; border-collapse: collapse; }
 .info-table tr td { padding: .35rem .2rem; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: .9rem; }
@@ -70,4 +70,7 @@ textarea { resize: vertical; }
 
 @media (max-width: 640px) {
   .preview-row { flex-direction: column; }
+  .preview-box, .info-box { min-width: 0; width: 100%; }
+  .preview-box img { max-height: 300px; }
+  .card { padding: 1rem; }
 }
