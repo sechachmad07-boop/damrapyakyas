@@ -92,7 +92,10 @@ function analyzeFile(file){
   currentImageData=null;
   const url=URL.createObjectURL(file);
   $('previewImg')&&($('previewImg').src=url);
+  $('preview1Img')&&($('preview1Img').src=url);
   $('cmpOrig')&&($('cmpOrig').src=url);
+  const p1=$('preview1');
+  if(p1) p1.classList.remove('hidden');
   const img=new Image();
   img.onload=()=>{
     try {
@@ -120,6 +123,7 @@ function analyzeFile(file){
       ['Kapasitas nama (7×)',cap+' karakter'],
     ];
     if($('infoTable')) $('infoTable').innerHTML=rows.map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('');
+    if($('infoTable1')) $('infoTable1').innerHTML=rows.map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('');
     $('next1').disabled=false;
     toast('Foto berhasil dianalisis','success');
   };
@@ -242,6 +246,15 @@ function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;
 
 // ---------- Step 1 ----------
 setupDrop($('dropZone'),$('fileInput'),analyzeFile);
+$('changePhoto').addEventListener('click',()=>{
+  currentImageData=null; currentFileName='';
+  $('fileInput').value='';
+  $('preview1')&&($('preview1').classList.add('hidden'));
+  $('preview1Img')&&($('preview1Img').src='');
+  if($('infoTable1')) $('infoTable1').innerHTML='';
+  $('next1').disabled=false;
+  toast('Silakan pilih foto lain','success');
+});
 $('username').addEventListener('input',()=>{
   $('next1').disabled = !($('username').value.trim() && currentImageData);
 });
@@ -253,6 +266,9 @@ $('newOne').addEventListener('click',()=>{
   $('fileInput').value=''; $('detectFileInput').value='';
   $('username').value='';
   $('previewImg')&&($('previewImg').src='');
+  $('preview1Img')&&($('preview1Img').src='');
+  $('preview1')&&($('preview1').classList.add('hidden'));
+  if($('infoTable1')) $('infoTable1').innerHTML='';
   $('cmpOrig')&&($('cmpOrig').src='');
   $('cmpWm')&&($('cmpWm').src='');
   if($('infoTable')) $('infoTable').innerHTML='';
