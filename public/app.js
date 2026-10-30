@@ -240,7 +240,7 @@ $('processBtn').addEventListener('click',()=>{
   $('processBtn').textContent='⏳ Memproses...';
   setTimeout(async ()=>{
     try{
-      const result=embedImageData(currentImageData,username,100,5);
+      const result=embedImageData(currentImageData,username,100,7);
       watermarkedImageData=result.imageData;
       let url;
       try { url=URL.createObjectURL(await imageDataToBlob(result.imageData)); }
@@ -276,7 +276,7 @@ $('verifyBtn').addEventListener('click',()=>{
     // coba beberapa redundansi (embed pakai rep 5), pilih hasil terbaik
     let bestText=null;
     outer2: for (const useECC of [true,false]) {
-      for (const r of [5,3,1]) {
+      for (const r of [7,5,3,1]) {
         try {
           const t=extractImageData(watermarkedImageData,r,useECC);
           if(t && t.length>0 && !/[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFD]/.test(t)){
@@ -367,7 +367,7 @@ $('detectBtn').addEventListener('click', () => {
     // coba rep 5 dulu (sesuai embed), baru fallback ke 3/1
     let bestText = null, bestRep = null, bestValid = false;
     outer: for (const useECC of [true, false]) {
-      for (const r of [5, 3, 1]) {
+      for (const r of [7, 5, 3, 1]) {
         try {
           const t = extractImageData(detectImageData, r, useECC);
           if (t && t.length > 0) {
