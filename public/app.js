@@ -183,7 +183,7 @@ $('processBtn').addEventListener('click',()=>{
   $('processBtn').textContent='⏳ Memproses...';
   setTimeout(async ()=>{
     try{
-      const result=embedImageData(currentImageData,username,80,3);
+      const result=embedImageData(currentImageData,username,100,5);
       watermarkedImageData=result.imageData;
       let url;
       try { url=URL.createObjectURL(await imageDataToBlob(result.imageData)); }
@@ -293,15 +293,21 @@ $('detectBtn').addEventListener('click', () => {
   $('detectResult').style.display = '';
   $('detectResult').innerHTML = '<div class="label">Memproses...</div>';
   setTimeout(() => {
-    let found = null, usedRep = null;
-    for (const r of [3, 1, 5]) {
+    // coba beberapa redundansi, pilih hasil dengan skor terbaik (paling banyak karakter terbaca)
+    let bestText = null, bestRep = null, bestScore = -1;
+    for (const r of [5, 3, 1]) {
       try {
         const t = extractImageData(detectImageData, r);
-        if (t && t.length > 0 && !/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(t)) {
-          found = t; usedRep = r; break;
+        if (t && t.length > 0) {
+          const score = (t.match(/[a-zA-Z0-9 ]/g) || []).length;
+          const hasBad = /[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFD]/.test(t);
+          if (!hasBad && score > bestScore) {
+            bestText = t; bestRep = r; bestScore = score;
+          }
         }
       } catch (e) { /* coba rep lain */ }
     }
+    const found = bestText, usedRep = bestRep;
     try {
       if (found !== null) {
         $('detectResult').innerHTML = `
