@@ -31,6 +31,30 @@ function idct2d(coeffs) {
 function rgbToYcbcr(r,g,b){return{Y:0.299*r+0.587*g+0.114*b,Cb:-0.168736*r-0.331264*g+0.5*b+128,Cr:0.5*r-0.418688*g-0.081312*b+128};}
 function ycbcrToRgb(Y,Cb,Cr){return{r:Y+1.402*(Cr-128),g:Y-0.344136*(Cb-128)-0.714136*(Cr-128),b:Y+1.772*(Cb-128)};}
 function clamp(v,lo,hi){return v<lo?lo:(v>hi?hi:v);}
+// Hamming(7,4) ECC
+function hammingEncode(bits){
+  const out=[];
+  for(let i=0;i<bits.length;i+=4){
+    const d1=bits[i],d2=bits[i+1],d3=bits[i+2],d4=bits[i+3];
+    const p1=d1^d2^d4, p2=d1^d3^d4, p3=d2^d3^d4;
+    out.push(p1,p2,d1,p3,d2,d3,d4);
+  }
+  return out;
+}
+function hammingDecode(cw){
+  const data=[];
+  for(let i=0;i<cw.length;i+=7){
+    const r=cw.slice(i,i+7);
+    if(r.length<7) break;
+    const s1=r[0]^r[2]^r[4]^r[6];
+    const s2=r[1]^r[2]^r[5]^r[6];
+    const s3=r[3]^r[4]^r[5]^r[6];
+    const syn=(s3<<2)|(s2<<1)|s1;
+    if(syn!==0 && syn<=7) r[syn-1]^=1;
+    data.push(r[2],r[4],r[5],r[6]);
+  }
+  return data;
+}
 
 let currentImageData=null, currentFileName='', watermarkedImageData=null, watermarkedDataURL=null;
 let detectImageData=null, detectFileName='';
@@ -104,15 +128,18 @@ function embedImageData(imageData,text,strength,rep){
   const bits=[];
   for(let i=15;i>=0;i--)bits.push((len>>i)&1);
   for(let k=0;k<bytes.length;k++)for(let i=7;i>=0;i--)bits.push((bytes[k]>>i)&1);
-  const totalBits=bits.length;
+  // pad to multiple of 4 for Hamming
+  while(bits.length % 4 !== 0) bits.push(0);
+  const eccBits = hammingEncode(bits);
+  const totalBits = eccBits.length;
   const blocksX=Math.floor(W/8),blocksY=Math.floor(H/8),totalBlocks=blocksX*blocksY;
   const needed=totalBits*rep;
-  if(needed>totalBlocks)throw new Error('Nama terlalu panjang. Kapasitas: '+Math.floor((totalBlocks/rep-16)/8)+' karakter.');
+  if(needed>totalBlocks)throw new Error('Nama terlalu panjang. Kapasitas: '+Math.floor((totalBlocks/rep*4/7-16)/8)+' karakter.');
   let blockCounter=0;
   for(let by=0;by<blocksY;by++)for(let bx=0;bx<blocksX;bx++){
     const mi=Math.floor(blockCounter/rep);
     if(mi<totalBits){
-      const bit=bits[mi];
+      const bit=eccBits[mi];
       const blk=Array.from({length:N},()=>new Array(N).fill(0));
       for(let x=0;x<N;x++)for(let y=0;y<N;y++)blk[x][y]=Y[(by*N+x)*W+(bx*N+y)]-128;
       const coeffs=dct2d(blk);
@@ -138,7 +165,7 @@ function embedImageData(imageData,text,strength,rep){
   return{imageData:new ImageData(out,W,H),psnr:+psnr.toFixed(2),mse:+mse.toFixed(4),bitsUsed:totalBits,totalBlocks};
 }
 
-function extractImageData(imageData,rep){
+function extractImageData(imageData,rep,useECC=true){
   const W=imageData.width,H=imageData.height;
   const data=imageData.data;
   const nPix=W*H;
@@ -153,12 +180,42 @@ function extractImageData(imageData,rep){
     rawBits[bc++]=(coeffs[2][1]>coeffs[1][2])?1:0;
   }
   function majority(i){let ones=0;for(let k=0;k<rep;k++){const idx=i*rep+k;if(idx<totalBlocks)ones+=rawBits[idx];}return (ones*2>=rep)?1:0;}
+
+  // ECC path: decode length (4 codewords=28 bits) then data
+  if(useECC){
+    const lenCodewordBits = 4*7; // 28
+    if(lenCodewordBits*rep > totalBlocks) throw new Error('Gambar terlalu kecil.');
+    const lenCW=[];
+    for(let i=0;i<lenCodewordBits;i++) lenCW.push(majority(i));
+    const lenData=hammingDecode(lenCW); // 16 bits
+    let len=0;
+    for(let i=0;i<16;i++) len=(len<<1)|lenData[i];
+    if(len<0||len>200) throw new Error('Header panjang tidak valid (ECC). Panjang terbaca: '+len);
+    const dataBitsCount = len*8;
+    const dataCodewords = Math.ceil(dataBitsCount/4);
+    const dataCWBits = dataCodewords*7;
+    if((lenCodewordBits+dataCWBits)*rep > totalBlocks) throw new Error('Gambar terlalu kecil untuk pesan ini.');
+    const dataCW=[];
+    for(let i=0;i<dataCWBits;i++) dataCW.push(majority(lenCodewordBits+i));
+    const decoded=hammingDecode(dataCW);
+    // trim to dataBitsCount
+    const bits=decoded.slice(0,dataBitsCount);
+    const outBytes=new Uint8Array(len);
+    for(let j=0;j<len;j++){let byte=0;for(let i=0;i<8;i++)byte=(byte<<1)|bits[j*8+i];outBytes[j]=byte;}
+    const text=new TextDecoder('utf-8').decode(outBytes);
+    if(/[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFD]/.test(text)) throw new Error('Teks tidak valid (ECC).');
+    return text;
+  }
+
+  // Fallback raw (tanpa ECC, untuk watermark lama)
   if(16*rep>totalBlocks)throw new Error('Gambar terlalu kecil.');
   let len=0;for(let i=0;i<16;i++)len=(len<<1)|majority(i);
   if(len<0||len>100000||(16+len*8)*rep>totalBlocks)throw new Error('Header panjang tidak valid. Panjang terbaca: '+len);
   const outBytes=new Uint8Array(len);
   for(let j=0;j<len;j++){let byte=0;for(let i=0;i<8;i++){const mi=16+j*8+i;byte=(byte<<1)|majority(mi);}outBytes[j]=byte;}
-  return new TextDecoder('utf-8').decode(outBytes);
+  const text=new TextDecoder('utf-8').decode(outBytes);
+  if(/[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFD]/.test(text)) throw new Error('Teks tidak valid.');
+  return text;
 }
 function imageDataToBlob(imageData){
   return new Promise((resolve,reject)=>{
@@ -295,17 +352,20 @@ $('detectBtn').addEventListener('click', () => {
   setTimeout(() => {
     // coba beberapa redundansi, pilih hasil dengan skor terbaik (paling banyak karakter terbaca)
     let bestText = null, bestRep = null, bestScore = -1;
-    for (const r of [5, 3, 1]) {
-      try {
-        const t = extractImageData(detectImageData, r);
-        if (t && t.length > 0) {
-          const score = (t.match(/[a-zA-Z0-9 ]/g) || []).length;
-          const hasBad = /[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFD]/.test(t);
-          if (!hasBad && score > bestScore) {
-            bestText = t; bestRep = r; bestScore = score;
+    // coba ECC dulu (watermark baru), lalu raw (watermark lama)
+    for (const useECC of [true, false]) {
+      for (const r of [5, 3, 1]) {
+        try {
+          const t = extractImageData(detectImageData, r, useECC);
+          if (t && t.length > 0) {
+            const score = (t.match(/[a-zA-Z0-9 ]/g) || []).length;
+            const hasBad = /[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFD]/.test(t);
+            if (!hasBad && score > bestScore) {
+              bestText = t; bestRep = r; bestScore = score;
+            }
           }
-        }
-      } catch (e) { /* coba rep lain */ }
+        } catch (e) { /* coba lain */ }
+      }
     }
     const found = bestText, usedRep = bestRep;
     try {
