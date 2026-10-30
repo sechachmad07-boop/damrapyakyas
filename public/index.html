@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Takasatmata — Watermark Nama Kreator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <h1>🛡️ Takasatmata</h1>
+      <p>Sisipkan nama kreator ke dalam foto secara tak kasat mata (tahan kompresi JPEG)</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="toast" class="toast"></div>
+
+    <section class="card">
+      <h2>📤 Upload Foto & Nama Pengguna</h2>
+      <div class="form-grid">
+        <label>Nama Pengguna / Kreator
+          <input type="text" id="username" placeholder="Contoh: Budi Santoso" maxlength="60" />
+        </label>
+        <label>Foto
+          <div class="upload-zone" id="dropZone">
+            <input type="file" id="fileInput" accept="image/*" hidden />
+            <div class="upload-inner">
+              <div class="upload-icon">🖼️</div>
+              <p>Klik atau seret foto ke sini</p>
+              <small>JPG, PNG, WEBP · Maks 15 MB</small>
+            </div>
+          </div>
+        </label>
+      </div>
+    </section>
+
+    <section class="card" id="previewCard" style="display:none;">
+      <h2>📊 Informasi Foto</h2>
+      <div class="preview-row">
+        <div class="preview-box">
+          <img id="previewImg" alt="preview" />
+        </div>
+        <div class="info-box">
+          <table class="info-table" id="infoTable"></table>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="processBtn">💧 Sisipkan Nama & Download</button>
+      </div>
+    </section>
+
+    <section class="card" id="resultCard" style="display:none;">
+      <h2>✅ Hasil Watermark</h2>
+      <div class="preview-row">
+        <div class="preview-box">
+          <img id="resultImg" alt="result" />
+        </div>
+        <div class="info-box">
+          <table class="info-table" id="resultTable"></table>
+          <div class="btn-row">
+            <a id="downloadBtn" class="btn success" download="watermarked.png">⬇️ Download Hasil</a>
+            <button class="btn" id="verifyBtn">🔍 Verifikasi</button>
+          </div>
+          <div id="verifyBox" class="result-box" style="display:none;"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Takasatmata · Watermark tak kasat mata tahan kompresi JPEG · Node.js + Express</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
+" path": "c:\\takasatmata\\public\\index.html"}
