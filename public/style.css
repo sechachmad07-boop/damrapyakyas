@@ -149,6 +149,10 @@ a:hover { text-decoration: underline; }
 
 /* Drop zone */
 .drop-field { display: flex; flex-direction: column; gap: 0.5rem; }
+.file-input {
+  position: absolute; opacity: 0; width: 0.1px; height: 0.1px;
+  overflow: hidden; margin: 0;
+}
 .drop-zone {
   border: 2px dashed var(--border); border-radius: 14px; padding: 2rem 1rem;
   text-align: center; cursor: pointer; transition: var(--transition);
@@ -225,11 +229,11 @@ a:hover { text-decoration: underline; }
 }
 .compare-label:first-child { left: 0.75rem; }
 .compare-label:last-child { right: 0.75rem; }
-.compare-slider-wrap { position: relative; height: 340px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); margin-top: 0.75rem; }
+.compare-slider-wrap { position: relative; max-height: 520px; min-height: 260px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); margin-top: 0.75rem; }
 .compare-img {
   position: absolute; inset: 0; width: 50%; height: 100%; overflow: hidden;
 }
-.compare-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.compare-img img { width: 100%; height: 100%; object-fit: contain; background: #050814; display: block; }
 .compare-img-left { left: 0; }
 .compare-img-right { right: 0; width: 50%; clip-path: inset(0 0 0 50%); }
 .compare-slider-wrap input[type="range"] {
