@@ -44,7 +44,7 @@ function setupDrop(zone,input,onFile){
   zone.addEventListener('drop',(e)=>{e.preventDefault();zone.classList.remove('drag');if(e.dataTransfer.files&&e.dataTransfer.files[0])onFile(e.dataTransfer.files[0]);});
 }
 
-function hasAlphaChannel(data){for(let i=3;i<data.length;i+=4)if(data[i]<255)return true;return false;}
+function hasAlphaChannel(data){for(let i=3;i<data.length;i+=40)if(data[i]<255)return true;return false;}
 
 function analyzeFile(file){
   currentFileName=file.name;
@@ -157,12 +157,15 @@ function extractImageData(imageData,rep){
   for(let j=0;j<len;j++){let byte=0;for(let i=0;i<8;i++){const mi=16+j*8+i;byte=(byte<<1)|majority(mi);}outBytes[j]=byte;}
   return new TextDecoder('utf-8').decode(outBytes);
 }
-function imageDataToDataURL(imageData){
-  const canvas=document.createElement('canvas');
-  canvas.width=imageData.width;canvas.height=imageData.height;
-  const ctx=canvas.getContext('2d');ctx.putImageData(imageData,0,0);
-  return canvas.toDataURL('image/png');
+function imageDataToBlob(imageData){
+  return new Promise((resolve,reject)=>{
+    const canvas=document.createElement('canvas');
+    canvas.width=imageData.width;canvas.height=imageData.height;
+    const ctx=canvas.getContext('2d');ctx.putImageData(imageData,0,0);
+    canvas.toBlob((b)=>{ if(b) resolve(b); else reject(new Error('Gagal membuat blob gambar')); },'image/png');
+  });
 }
+function imageDataToDataURLFallback(imageData){const c=document.createElement('canvas');c.width=imageData.width;c.height=imageData.height;const ctx=c.getContext('2d');ctx.putImageData(imageData,0,0);return c.toDataURL('image/png');}
 function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 $('processBtn').addEventListener('click',()=>{
@@ -175,12 +178,16 @@ $('processBtn').addEventListener('click',()=>{
   if(username.length>cap3){toast('Nama terlalu panjang (maks '+cap3+' karakter)','error');return;}
   $('processBtn').disabled=true;
   $('processBtn').textContent='⏳ Memproses...';
-  setTimeout(()=>{
+  setTimeout(async ()=>{
     try{
       const result=embedImageData(currentImageData,username,50,3);
       watermarkedImageData=result.imageData;
-      watermarkedDataURL=imageDataToDataURL(result.imageData);
-      $('resultImg').src=watermarkedDataURL;
+      let url;
+      try { url=URL.createObjectURL(await imageDataToBlob(result.imageData)); }
+      catch(e){ url=imageDataToDataURLFallback(result.imageData); }
+      if(watermarkedDataURL && watermarkedDataURL.startsWith('blob:')) URL.revokeObjectURL(watermarkedDataURL);
+      watermarkedDataURL=url;
+      $('resultImg').src=url;
       $('resultCard').style.display='';
       const rows=[
         ['Nama pengguna',username],
@@ -191,7 +198,7 @@ $('processBtn').addEventListener('click',()=>{
         ['Status','Watermark tak kasat mata tersisip'],
       ];
       $('resultTable').innerHTML=rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('');
-      $('downloadBtn').href=watermarkedDataURL;
+      $('downloadBtn').href=url;
       $('downloadBtn').download='watermarked_'+username.replace(/[^a-z0-9]/gi,'_')+'.png';
       toast('Berhasil! Nama tersisip & siap diunduh','success');
     }catch(e){toast(e.message,'error');}
@@ -201,19 +208,26 @@ $('processBtn').addEventListener('click',()=>{
 
 $('verifyBtn').addEventListener('click',()=>{
   if(!watermarkedImageData){toast('Belum ada hasil','error');return;}
-  try{
-    const text=extractImageData(watermarkedImageData,3);
-    const username=$('username').value.trim();
-    const ok=(text===username);
-    $('verifyBox').style.display='';
-    $('verifyBox').innerHTML=`
-      <div class="label">Teks terdeteksi:</div>
-      <div class="value ${ok?'ok':'bad'}">"${escapeHtml(text)}"</div>
-      <div class="label" style="margin-top:.6rem;">${ok?'✅ Verifikasi berhasil — nama cocok':'⚠️ Tidak cocok'}</div>`;
-    toast(ok?'Verifikasi berhasil':'Verifikasi gagal',ok?'success':'error');
-  }catch(e){
-    $('verifyBox').style.display='';
-    $('verifyBox').innerHTML=`<div class="value bad">${escapeHtml(e.message)}</div>`;
-    toast(e.message,'error');
-  }
+  $('verifyBtn').disabled=true;
+  $('verifyBtn').textContent='⏳ Memverifikasi...';
+  $('verifyBox').style.display='';
+  $('verifyBox').innerHTML='<div class="label">Memproses...</div>';
+  setTimeout(()=>{
+    try{
+      const text=extractImageData(watermarkedImageData,3);
+      const username=$('username').value.trim();
+      const ok=(text===username);
+      $('verifyBox').innerHTML=`
+        <div class="label">Teks terdeteksi:</div>
+        <div class="value ${ok?'ok':'bad'}">"${escapeHtml(text)}"</div>
+        <div class="label" style="margin-top:.6rem;">${ok?'✅ Verifikasi berhasil — nama cocok':'⚠️ Tidak cocok'}</div>`;
+      toast(ok?'Verifikasi berhasil':'Verifikasi gagal',ok?'success':'error');
+    }catch(e){
+      $('verifyBox').innerHTML=`<div class="value bad">${escapeHtml(e.message)}</div>`;
+      toast(e.message,'error');
+    }finally{
+      $('verifyBtn').disabled=false;
+      $('verifyBtn').textContent='🔍 Verifikasi';
+    }
+  },50);
 });
