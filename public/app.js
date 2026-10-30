@@ -62,7 +62,6 @@ function toast(msg,type=''){const t=$('toast');t.textContent=msg;t.className='to
 
 function setupDrop(zone,input,onFile){
   input.addEventListener('change',(e)=>{if(e.target.files&&e.target.files[0])onFile(e.target.files[0]);});
-  zone.addEventListener('click',(e)=>{e.preventDefault(); input.click();});
   zone.addEventListener('dragover',(e)=>{e.preventDefault();zone.classList.add('drag');});
   zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
   zone.addEventListener('drop',(e)=>{e.preventDefault();zone.classList.remove('drag');if(e.dataTransfer.files&&e.dataTransfer.files[0])onFile(e.dataTransfer.files[0]);});
