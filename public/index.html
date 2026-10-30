@@ -55,7 +55,7 @@
           </div>
           <div class="drop-field">
             <label class="drop-zone" id="dropZone" for="fileInput" aria-label="Drop zona foto">
-              <input type="file" id="fileInput" accept="image/*" class="file-input" aria-hidden="true" />
+              <input type="file" id="fileInput" accept="image/*" capture="environment" class="file-input" aria-hidden="true" />
               <div class="drop-inner">
                 <div class="drop-icon">&#128247;</div>
                 <p class="drop-title">Klik atau seret foto ke sini</p>
@@ -90,20 +90,15 @@
         <h2><span class="num">2</span>Hasil Watermark</h2>
         <p class="panel-desc">Bandingkan foto asli dan hasil watermark, lalu unduh foto yang sudah disisipkan nama.</p>
 
-        <div class="compare-card">
-          <div class="compare-label">Asli</div>
-          <div class="compare-label">Watermarked</div>
-          <div class="compare-slider-wrap" id="cmpSliderWrap">
-            <div class="compare-img compare-img-left">
-              <img id="cmpOrig" alt="Asli" />
-            </div>
-            <div class="compare-img compare-img-right">
-              <img id="cmpWm" alt="Watermarked" />
-            </div>
-            <input type="range" id="cmpSlider" min="0" max="100" value="50" />
-            <div class="compare-handle" id="cmpHandle"></div>
+        <div class="result-pair">
+          <div class="preview-box">
+            <img id="cmpOrig" alt="Foto asli" />
+            <div class="overlay-badge">Asli</div>
           </div>
-          <p class="compare-hint">Geser penggaris untuk membandingkan.</p>
+          <div class="preview-box">
+            <img id="cmpWm" alt="Foto watermark" />
+            <div class="overlay-badge">Watermarked</div>
+          </div>
         </div>
 
         <div class="info-grid">
@@ -144,7 +139,7 @@
       </div>
       <div class="card detect-card">
         <label class="drop-zone detect-zone" id="detectDropZone" for="detectFileInput" aria-label="Drop zona deteksi">
-          <input type="file" id="detectFileInput" accept="image/*" class="file-input" aria-hidden="true" />
+          <input type="file" id="detectFileInput" accept="image/*" capture="environment" class="file-input" aria-hidden="true" />
           <div class="drop-inner">
             <div class="drop-icon">&#128269;</div>
             <p class="drop-title">Klik atau seret foto ke sini</p>
@@ -165,7 +160,10 @@
         <div class="btn-row">
           <button class="btn btn-primary" id="detectBtn" disabled>&#128269; Deteksi Watermark</button>
         </div>
-        <div id="detectResult" class="result-box hidden" role="status" aria-live="polite"></div>
+        <div id="detectResult" class="result-box" role="status" aria-live="polite">
+          <div class="label">Belum ada identitas watermark.</div>
+          <div class="value bad">Silakan unggah foto untuk dideteksi watermark.</div>
+        </div>
       </div>
     </div>
   </section>

@@ -62,7 +62,7 @@ function toast(msg,type=''){const t=$('toast');t.textContent=msg;t.className='to
 
 function setupDrop(zone,input,onFile){
   input.addEventListener('change',(e)=>{if(e.target.files&&e.target.files[0])onFile(e.target.files[0]);});
-  zone.addEventListener('click',()=>input.click());
+  zone.addEventListener('click',(e)=>{e.preventDefault(); input.click();});
   zone.addEventListener('dragover',(e)=>{e.preventDefault();zone.classList.add('drag');});
   zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
   zone.addEventListener('drop',(e)=>{e.preventDefault();zone.classList.remove('drag');if(e.dataTransfer.files&&e.dataTransfer.files[0])onFile(e.dataTransfer.files[0]);});
@@ -282,44 +282,6 @@ $('newOne').addEventListener('click',()=>{
 });
 
 // ---------- Step 2: proses & hasil ----------
-function initCompare(){
-  const wrap=$('cmpSliderWrap');
-  const orig=$('cmpOrig'), wm=$('cmpWm'), slider=$('cmpSlider'), handle=$('cmpHandle');
-  if(!wrap||!orig||!wm||!slider||!handle) return;
-  [orig,wm].forEach(img=>{
-    img.style.position='absolute';img.style.inset='0';img.style.width='100%';img.style.height='100%';img.style.objectFit='cover';img.style.display='block';
-  });
-  orig.style.clipPath='inset(0 0 0 0)';
-  wm.style.clipPath='inset(0 0 0 50%)';
-  const update=(val)=>{
-    orig.style.clipPath=`inset(0 ${100-val}% 0 0)`;
-    wm.style.clipPath=`inset(0 0 0 ${val}%)`;
-    handle.style.left=`${val}%`;
-    handle.style.transform=`translate(-${val}%, -50%)`;
-  };
-  update(slider.value);
-  let dragging=false;
-  slider.addEventListener('input',()=>{update(slider.value);});
-  slider.addEventListener('mousedown',()=>{dragging=true;});
-  slider.addEventListener('touchstart',()=>{dragging=true;},{passive:false});
-  window.addEventListener('mouseup',()=>{dragging=false;});
-  window.addEventListener('touchend',()=>{dragging=false;});
-  wrap.addEventListener('mousemove',(e)=>{
-    if(!dragging) return;
-    const rect=wrap.getBoundingClientRect();
-    let x=((e.clientX-rect.left)/rect.width)*100;
-    x=Math.max(0,Math.min(100,x));
-    slider.value=x;update(x);
-  });
-  wrap.addEventListener('touchmove',(e)=>{
-    if(!dragging) return;
-    const rect=wrap.getBoundingClientRect();
-    const x=((e.touches[0].clientX-rect.left)/rect.width)*100;
-    slider.value=Math.max(0,Math.min(100,x));
-    update(slider.value);
-  },{passive:false});
-}
-
 $('next1').addEventListener('click',(e)=>{
   e.preventDefault();
   const username=$('username').value.trim();
@@ -340,7 +302,6 @@ $('next1').addEventListener('click',(e)=>{
       if(watermarkedDataURL && watermarkedDataURL.startsWith('blob:')) URL.revokeObjectURL(watermarkedDataURL);
       watermarkedDataURL=url;
       $('cmpWm').src=url;
-      initCompare();
       const rows=[
         ['Nama pengguna',username],
         ['Lebar',result.imageData.width+' px'],
