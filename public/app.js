@@ -281,13 +281,28 @@ $('detectBtn').addEventListener('click', () => {
   $('detectResult').style.display = '';
   $('detectResult').innerHTML = '<div class="label">Memproses...</div>';
   setTimeout(() => {
+    let found = null, usedRep = null;
+    for (const r of [3, 1, 5]) {
+      try {
+        const t = extractImageData(detectImageData, r);
+        if (t && t.length > 0 && !/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(t)) {
+          found = t; usedRep = r; break;
+        }
+      } catch (e) { /* coba rep lain */ }
+    }
     try {
-      const text = extractImageData(detectImageData, 3);
-      $('detectResult').innerHTML = `
-        <div class="label">Watermark terdeteksi:</div>
-        <div class="value ok">"${escapeHtml(text)}"</div>
-        <div class="label" style="margin-top:.6rem;">✅ Deteksi berhasil</div>`;
-      toast('Deteksi berhasil', 'success');
+      if (found !== null) {
+        $('detectResult').innerHTML = `
+          <div class="label">Watermark terdeteksi (redundansi ${usedRep}x):</div>
+          <div class="value ok">"${escapeHtml(found)}"</div>
+          <div class="label" style="margin-top:.6rem;">✅ Deteksi berhasil</div>`;
+        toast('Deteksi berhasil', 'success');
+      } else {
+        $('detectResult').innerHTML = `
+          <div class="value bad">Tidak terdeteksi watermark yang valid pada foto ini.</div>
+          <div class="label" style="margin-top:.6rem;">Pastikan foto adalah hasil watermark Takasatmata dan belum diubah/kompresi berlebih.</div>`;
+        toast('Tidak terdeteksi watermark', 'error');
+      }
     } catch (e) {
       $('detectResult').innerHTML = `<div class="value bad">${escapeHtml(e.message)}</div>`;
       toast(e.message, 'error');
