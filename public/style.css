@@ -152,32 +152,34 @@ a:hover { text-decoration: underline; }
 .drop-zone {
   border: 2px dashed var(--border); border-radius: 14px; padding: 2rem 1rem;
   text-align: center; cursor: pointer; transition: var(--transition);
-  background: rgba(255,255,255,0.025); position: relative;
+  background: rgba(255, 255, 255, 0.025); position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 170px;
 }
 .drop-zone:hover, .drop-zone.drag {
-  border-color: var(--accent); background: rgba(56,189,248,0.07);
+  border-color: var(--accent); background: rgba(56, 189, 248, 0.07);
 }
-.drop-inner { display: flex; flex-direction: column; align-items: center; gap: 0.55rem; }
+.drop-inner { display: flex; flex-direction: column; align-items: center; gap: 0.55rem; z-index: 1; }
 .drop-icon { font-size: 2.5rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
 .drop-title { margin: 0; font-size: 1rem; font-weight: 600; color: var(--text); }
 .drop-hint { margin: 0; font-size: 0.78rem; color: var(--text-muted); }
-.detect-zone { padding: 1.6rem 1rem; }
+.detect-zone { padding: 1.75rem 1rem; min-height: 150px; }
 
 /* Preview */
-.preview-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start; }
+.preview-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start; margin-top: 1rem; }
 .preview-box {
-  flex: 1; min-width: 240px; background: rgba(0,0,0,0.3);
+  flex: 1; min-width: 240px; background: rgba(0, 0, 0, 0.3);
   border-radius: 12px; padding: 0.75rem; display: flex; align-items: center; justify-content: center;
   position: relative; overflow: hidden; border: 1px solid var(--border);
 }
 .preview-box img {
   max-width: 100%; width: auto; height: auto; max-height: 340px; object-fit: contain;
-  border-radius: 8px; display: block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+  border-radius: 8px; display: block; filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
 }
 .overlay-badge {
   position: absolute; top: 0.6rem; left: 0.6rem; z-index: 2;
   font-size: 0.72rem; font-weight: 800; padding: 0.28rem 0.7rem; border-radius: 999px;
-  background: rgba(0,0,0,0.55); color: #fff; border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(0, 0, 0, 0.55); color: #fff; border: 1px solid rgba(255, 255, 255, 0.25);
   backdrop-filter: blur(4px);
 }
 .info-box { flex: 1; min-width: 280px; }

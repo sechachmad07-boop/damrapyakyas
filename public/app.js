@@ -56,7 +56,7 @@ function hammingDecode(cw){
 }
 
 let currentImageData=null, currentFileName='', watermarkedImageData=null, watermarkedDataURL=null, watermarkedBlob=null;
-let detectImageData=null, detectFileName='';
+let detectFileName='';
 
 function toast(msg,type=''){const t=$('toast');t.textContent=msg;t.className='toast show '+type;clearTimeout(t._timer);t._timer=setTimeout(()=>{t.className='toast';},3200);}
 
@@ -365,34 +365,22 @@ $('verifyBtn').addEventListener('click',()=>{
 });
 
 // ---------- Deteksi watermark ----------
+let detectFileBuffer = null;
+let detectWorker = null;
+let detectTimeout = null;
+
 function analyzeDetectFile(file) {
   detectFileName = file.name;
+  detectFileBuffer = null;
   const url = URL.createObjectURL(file);
   $('detectPreviewImg').src = url;
   $('detectPreviewCard').classList.remove('hidden');
+  const reader = new FileReader();
+  reader.onload = () => { detectFileBuffer = reader.result; };
+  reader.readAsArrayBuffer(file);
   $('detectInfoTable').innerHTML = '<tr><td colspan="2">Memuat gambar...</td></tr>';
   const img = new Image();
-  let loaded = false;
-  const timer = setTimeout(() => {
-    if (!loaded) {
-      toast('Gagal memuat gambar (timeout). Coba format JPG/PNG.', 'error');
-      $('detectInfoTable').innerHTML = '<tr><td colspan="2">Gagal memuat gambar. Coba format JPG/PNG.</td></tr>';
-    }
-  }, 10000);
   img.onload = () => {
-    loaded = true;
-    clearTimeout(timer);
-    let canvas, ctx;
-    try {
-      canvas = document.createElement('canvas');
-      canvas.width = img.width; canvas.height = img.height;
-      ctx = canvas.getContext('2d', {colorSpace:'srgb'}); ctx.drawImage(img, 0, 0);
-      detectImageData = ctx.getImageData(0, 0, img.width, img.height);
-    } catch (e) {
-      toast('Gagal memproses gambar: ' + e.message, 'error');
-      $('detectInfoTable').innerHTML = '<tr><td colspan="2">Gagal memproses: ' + escapeHtml(e.message) + '</td></tr>';
-      return;
-    }
     const W = img.width, H = img.height;
     const blocks = Math.floor(W / 8) * Math.floor(H / 8);
     const rows = [
@@ -407,79 +395,77 @@ function analyzeDetectFile(file) {
     ];
     $('detectInfoTable').innerHTML = rows.map(([k, v]) =>
       `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('');
-    $('detectBtn').disabled=false;
+    $('detectBtn').disabled = false;
     toast('Foto siap dideteksi', 'success');
+    URL.revokeObjectURL(url);
   };
-  img.onerror = () => toast('Gagal memuat gambar', 'error');
+  img.onerror = () => { toast('Gagal memuat gambar', 'error'); };
   img.src = url;
 }
 setupDrop($('detectDropZone'), $('detectFileInput'), analyzeDetectFile);
 
 $('detectBtn').addEventListener('click', () => {
-  if (!detectImageData) { toast('Upload foto terlebih dahulu', 'error'); return; }
+  if (!detectFileBuffer) { toast('Upload foto terlebih dahulu', 'error'); return; }
   $('detectBtn').disabled = true;
   $('detectBtn').textContent = '⏳ Mendeteksi...';
   $('detectResult').classList.remove('hidden');
-  $('detectResult').innerHTML = '<div class="label">Memproses...</div>';
-  setTimeout(() => {
-    let bestText = null, bestRep = null, bestValid = false;
-    outer: for (const useECC of [true, false]) {
-      for (const r of [7, 5, 3, 1]) {
-        try {
-          const t = extractImageData(detectImageData, r, useECC, 0, 0);
-          if (t && t.length > 0) {
-            const hasBad = /[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFD]/.test(t);
-            if (!hasBad) {
-              bestText = t; bestRep = r; bestValid = true;
-              break outer;
-            }
-            if (bestText === null) { bestText = t; bestRep = r; bestValid = false; }
-          }
-        } catch (e) { /* coba lain */ }
+  $('detectResult').innerHTML = `
+    <div class="label">Memproses...</div>
+    <div style="font-size:0.8rem;color:var(--text-muted);margin-top:.4rem;">Menganalisis foto (bisa memakan waktu)</div>
+  `;
+  detectTimeout = setTimeout(() => {
+    if (detectWorker) { detectWorker.terminate(); detectWorker = null; }
+    $('detectBtn').disabled = false;
+    $('detectBtn').textContent = '🔍 Deteksi Watermark';
+    $('detectResult').innerHTML = `
+      <div class="value bad">Waktu habis (timeout).</div>
+      <div class="label" style="margin-top:.6rem;">Watermark tidak terdeteksi dalam batas waktu.</div>`;
+    toast('Deteksi timeout', 'error');
+  }, 15000);
+  try {
+    detectWorker = new Worker('detect-worker.js');
+    detectWorker.onmessage = (e) => {
+      clearTimeout(detectTimeout);
+      detectWorker = null;
+      const { ok, found, rep, valid, w, h, error } = e.data;
+      $('detectBtn').disabled = false;
+      $('detectBtn').textContent = '🔍 Deteksi Watermark';
+      if (!ok) {
+        $('detectResult').innerHTML = `<div class="value bad">Gagal memproses: ${escapeHtml(error)}</div>`;
+        toast('Gagal memproses', 'error');
+        return;
       }
-    }
-    if (bestText === null || !bestValid) {
-      outer2: for (let oy = 0; oy <= 3; oy++) {
-        for (let ox = 0; ox <= 3; ox++) {
-          if (ox === 0 && oy === 0) continue;
-          try {
-            const t = extractImageData(detectImageData, 7, true, ox, oy);
-            if (t && t.length > 0) {
-              const hasBad = /[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFD]/.test(t);
-              if (!hasBad) {
-                bestText = t; bestRep = 7; bestValid = true;
-                break outer2;
-              }
-              if (bestText === null) { bestText = t; bestRep = 7; bestValid = false; }
-            }
-          } catch (e) { /* coba lain */ }
-        }
-      }
-    }
-    const found = bestText, usedRep = bestRep;
-    try {
-      if (found !== null) {
-        const cls = bestValid ? 'ok' : 'bad';
-        const msg = bestValid ? '✅ Deteksi berhasil' : '⚠️ Hasil tidak pasti (mungkin terdistorsi)';
+      if (found) {
+        const cls = valid ? 'ok' : 'bad';
+        const msg = valid ? '✅ Deteksi berhasil' : '⚠️ Hasil tidak pasti (mungkin terdistorsi)';
         $('detectResult').innerHTML = `
-          <div class="label">Watermark terdeteksi (redundansi ${usedRep}x):</div>
+          <div class="label">Watermark terdeteksi (redundansi ${rep}x, resolusi ${w}×${h}):</div>
           <div class="value ${cls}">"${escapeHtml(found)}"</div>
-          <div class="${bestValid?'ok-msg':'bad-msg'}" style="margin-top:.6rem;">${msg}</div>`;
-        toast(bestValid ? 'Deteksi berhasil' : 'Deteksi tidak pasti', bestValid ? 'success' : 'error');
+          <div class="${valid?'ok-msg':'bad-msg'}" style="margin-top:.6rem;">${msg}</div>`;
+        toast(valid ? 'Deteksi berhasil' : 'Deteksi tidak pasti', valid ? 'success' : 'error');
       } else {
         $('detectResult').innerHTML = `
           <div class="value bad">Tidak terdeteksi watermark yang valid pada foto ini.</div>
           <div class="label" style="margin-top:.6rem;">Tips: gunakan foto hasil download (PNG) dari aplikasi ini. Screenshot/kompresi dapat merusak watermark.</div>`;
         toast('Tidak terdeteksi watermark', 'error');
       }
-    } catch (e) {
-      $('detectResult').innerHTML = `<div class="value bad">${escapeHtml(e.message)}</div>`;
-      toast(e.message, 'error');
-    } finally {
+    };
+    detectWorker.onerror = (ev) => {
+      clearTimeout(detectTimeout);
+      detectWorker = null;
       $('detectBtn').disabled = false;
       $('detectBtn').textContent = '🔍 Deteksi Watermark';
-    }
-  }, 50);
+      $('detectResult').innerHTML = `<div class="value bad">Worker error: ${escapeHtml(ev.message)}</div>`;
+      toast('Worker error', 'error');
+    };
+    detectWorker.postMessage({ buffer: detectFileBuffer }, [detectFileBuffer]);
+  } catch (err) {
+    clearTimeout(detectTimeout);
+    $('detectBtn').disabled = false;
+    $('detectBtn').textContent = '🔍 Deteksi Watermark';
+    $('detectResult').innerHTML = `<div class="value bad">Web Worker tidak didukung: ${escapeHtml(err.message)}</div>`;
+    toast('Web Worker tidak didukung', 'error');
+  }
 });
 
 // ---------- Download (iOS-friendly) ----------
