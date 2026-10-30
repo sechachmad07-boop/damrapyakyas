@@ -3,103 +3,267 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Takasatmata — Watermark Nama Kreator</title>
-  <link rel="stylesheet" href="style.css?v=17" />
+  <meta name="description" content="Takasatmata — Sisipkan nama kreator ke dalam foto secara tak kasat mata, tahan kompresi JPEG." />
+  <title>Takasatmata — Watermark Nama Kreator Tak Kasat Mata</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css?v=2" />
 </head>
 <body>
-  <header class="hero">
+  <a href="#content" class="skip">Langsung ke konten</a>
+
+  <header class="hero" id="hero">
     <div class="hero-inner">
-      <h1>🛡️ Takasatmata</h1>
-      <p>Sisipkan nama kreator ke dalam foto secara tak kasat mata (tahan kompresi JPEG)</p>
+      <div class="badge">100% di Browser &bull; Tanpa Server</div>
+      <h1>Takasatmata<span class="dot">.</span></h1>
+      <p class="lead">Sisipkan nama kreator ke dalam foto secara tak kasat mata. Tahan kompresi JPEG, cocok untuk pelindung hak cipta foto Anda.</p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" id="startBtn">Mulai Sekarang</button>
+      </div>
     </div>
   </header>
 
-  <main class="container">
-    <div id="toast" class="toast"></div>
+  <main id="content">
+    <div class="container">
 
-    <section class="card">
-      <h2>📤 Upload Foto & Nama Pengguna</h2>
-      <div class="form-grid">
-        <label>Nama Pengguna / Kreator
-          <input type="text" id="username" placeholder="Contoh: Budi Santoso" maxlength="60" />
-        </label>
-        <div class="field-label">Foto</div>
-        <label class="upload-zone" id="dropZone" for="fileInput">
-            <input type="file" id="fileInput" accept="image/*" hidden />
-            <div class="upload-inner">
-              <div class="upload-icon">🖼️</div>
-              <p>Klik atau seret foto ke sini</p>
-              <small>JPG, PNG, WEBP · Maks 15 MB</small>
-            </div>
-          </label>
-      </div>
-    </section>
+      <!-- Toast -->
+      <div id="toast" class="toast" role="alert" aria-live="polite"></div>
 
-    <section class="card" id="previewCard" style="display:none;">
-      <h2>📊 Informasi Foto</h2>
-      <div class="preview-row">
-        <div class="preview-box">
-          <img id="previewImg" alt="preview" />
-        </div>
-        <div class="info-box">
-          <table class="info-table" id="infoTable"></table>
-        </div>
+      <!-- Wizard Stepper -->
+      <div class="wizard">
+        <nav class="stepper" aria-label="Langkah penggunaan">
+          <button class="step active" data-step="1" aria-current="step">
+            <span class="step-num">1</span><span class="step-label">Upload</span>
+          </button>
+          <button class="step" data-step="2" disabled>
+            <span class="step-num">2</span><span class="step-label">Info &amp; Pengaturan</span>
+          </button>
+          <button class="step" data-step="3" disabled>
+            <span class="step-num">3</span><span class="step-label">Hasil &amp; Unduh</span>
+          </button>
+        </nav>
+        <div class="step-progress"><div class="step-fill" id="stepFill"></div></div>
       </div>
-      <div class="btn-row">
-        <button class="btn primary" id="processBtn">💧 Sisipkan Nama & Download</button>
-      </div>
-    </section>
 
-    <section class="card" id="resultCard" style="display:none;">
-      <h2>✅ Hasil Watermark</h2>
-      <div class="preview-row">
-        <div class="preview-box">
-          <img id="resultImg" alt="result" />
-        </div>
-        <div class="info-box">
-          <table class="info-table" id="resultTable"></table>
-          <div class="btn-row">
-            <button id="downloadBtn" class="btn success">⬇️ Download Hasil</button>
-            <button class="btn" id="verifyBtn">🔍 Verifikasi</button>
+      <!-- Step 1: Upload -->
+      <section class="card panel" id="panel1" data-panel="1">
+        <h2><span class="num">1</span>Upload Foto &amp; Nama Kreator</h2>
+        <p class="panel-desc">Pilih foto dan masukkan nama yang akan disisipkan secara tak kasat mata.</p>
+
+        <div class="form-grid">
+          <div class="input-field">
+            <label for="username">Nama Pengguna / Kreator <span class="req">*</span></label>
+            <input type="text" id="username" placeholder="Contoh: Budi Santoso" maxlength="60" />
+            <small class="hint">Maksimal 60 karakter. Nama akan tersembunyi di dalam piksel foto.</small>
           </div>
-          <div id="verifyBox" class="result-box" style="display:none;"></div>
-        </div>
-      </div>
-    </section>
-    <section class="card">
-      <h2>🔍 Deteksi Watermark & Info Foto</h2>
-      <div class="form-grid">
-        <label class="upload-zone" id="detectDropZone" for="detectFileInput">
-          <input type="file" id="detectFileInput" accept="image/*" hidden />
-          <div class="upload-inner">
-            <div class="upload-icon">🔎</div>
-            <p>Klik atau seret foto (watermarked) ke sini</p>
-            <small>JPG, PNG, WEBP · Maks 15 MB</small>
+          <div class="drop-field">
+            <label class="drop-zone" id="dropZone" for="fileInput" aria-label="Drop zona foto">
+              <input type="file" id="fileInput" accept="image/*" hidden aria-hidden="true" />
+              <div class="drop-inner">
+                <div class="drop-icon">&#128247;</div>
+                <p class="drop-title">Klik atau seret foto ke sini</p>
+                <small class="drop-hint">JPG, PNG, WEBP &bull; Maks 15 MB</small>
+              </div>
+            </label>
           </div>
-        </label>
-      </div>
-      <section class="card" id="detectPreviewCard" style="display:none; margin-top:1rem;">
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="next1" disabled>Lanjut ke Info Foto</button>
+        </div>
+      </section>
+
+      <!-- Step 2: Info & Settings -->
+      <section class="card panel hidden" id="panel2" data-panel="2">
+        <h2><span class="num">2</span>Info Foto &amp; Pengaturan</h2>
+        <p class="panel-desc">Periksa detail foto dan atur kekuatan watermark sebelum disisipkan.</p>
+
         <div class="preview-row">
           <div class="preview-box">
-            <img id="detectPreviewImg" alt="detect" />
+            <img id="previewImg" alt="Preview foto asli" />
+            <div class="overlay-badge">Asli</div>
           </div>
           <div class="info-box">
-            <table class="info-table" id="detectInfoTable"></table>
+            <table class="info-table" id="infoTable"></table>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3>Pengaturan Watermark</h3>
+          <div class="range-field">
+            <label>Kekuatan (Strength) <span id="strengthVal">100</span></label>
+            <input type="range" id="strength" min="20" max="100" value="100" />
+            <p class="range-desc">Semakin tinggi semakin tahan kompresi, namun sedikit lebih terlihat.</p>
+          </div>
+          <div class="capacity-strip">
+            <span class="chip">Blok DCT: <span id="capBlocks">-</span></span>
+            <span class="chip">Kapasitas: <span id="capChars">-</span> karakter</span>
+            <span class="chip" id="chipRedundansi">Redundansi: 7&#215;</span>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-outline" id="prev2">Kembali</button>
+          <button class="btn btn-primary" id="next2" disabled>Sisipkan Nama &amp; Lihat Hasil</button>
+        </div>
+      </section>
+
+      <!-- Step 3: Result -->
+      <section class="card panel hidden" id="panel3" data-panel="3">
+        <h2><span class="num">3</span>Hasil Watermark</h2>
+        <p class="panel-desc">Bandingkan foto asli dan hasil watermark. Unduh foto yang sudah disisipkan nama.</p>
+
+        <div class="compare-card">
+          <div class="compare-label">Asli</div>
+          <div class="compare-label">Watermarked</div>
+          <div class="compare-slider-wrap" id="cmpSliderWrap">
+            <div class="compare-img compare-img-left">
+              <img id="cmpOrig" alt="Asli" />
+            </div>
+            <div class="compare-img compare-img-right">
+              <img id="cmpWm" alt="Watermarked" />
+            </div>
+            <input type="range" id="cmpSlider" min="0" max="100" value="50" />
+            <div class="compare-handle" id="cmpHandle"></div>
+          </div>
+          <p class="compare-hint">Geser penggaris untuk membandingkan.</p>
+        </div>
+
+        <div class="result-grid">
+          <div class="info-box">
+            <table class="info-table" id="resultTable"></table>
+          </div>
+          <div class="actions-box">
+            <div class="btn-row">
+              <button class="btn btn-success" id="downloadBtn">&#9660; Unduh Hasil PNG</button>
+              <button class="btn btn-primary" id="verifyBtn">&#128270; Verifikasi Nama</button>
+            </div>
+            <div id="verifyBox" class="verify-box hidden"></div>
+            <div class="mt">
+              <button class="btn btn-outline" id="prev3">Kembali ke Pengaturan</button>
+              <button class="btn btn-outline" id="newOne">Buat Baru</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Deteksi Watermark (standalone) -->
+  <section class="detect-section">
+    <div class="container">
+      <div class="section-head">
+        <h2>&#128270; Deteksi Watermark pada Foto</h2>
+        <p>Unggah foto yang mencurigai sudah diwatermark untuk mengekstrak nama kreator tersembunyi.</p>
+      </div>
+      <div class="card detect-card">
+        <label class="drop-zone detect-zone" id="detectDropZone" for="detectFileInput" aria-label="Drop zona deteksi">
+          <input type="file" id="detectFileInput" accept="image/*" hidden aria-hidden="true" />
+          <div class="drop-inner">
+            <div class="drop-icon">&#128269;</div>
+            <p class="drop-title">Klik atau seret foto ke sini</p>
+            <small class="drop-hint">JPG, PNG, WEBP &bull; Maks 15 MB</small>
+          </div>
+        </label>
+        <div id="detectPreviewCard" class="hidden">
+          <div class="preview-row">
+            <div class="preview-box">
+              <img id="detectPreviewImg" alt="Preview foto deteksi" />
+              <div class="overlay-badge">Target</div>
+            </div>
+            <div class="info-box">
+              <table class="info-table" id="detectInfoTable"></table>
+            </div>
           </div>
         </div>
         <div class="btn-row">
-          <button class="btn primary" id="detectBtn">🔍 Deteksi Watermark</button>
+          <button class="btn btn-primary" id="detectBtn" disabled>&#128269; Deteksi Watermark</button>
         </div>
-        <div id="detectResult" class="result-box" style="display:none;"></div>
-      </section>
-    </section>
+        <div id="detectResult" class="result-box hidden" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
 
-  </main>
+  <!-- Cara kerja -->
+  <section class="how-section">
+    <div class="container">
+      <div class="section-head">
+        <h2>&#128161; Cara Kerja Takasatmata</h2>
+        <p>Teknologi di balik watermark tak kasat mata ini.</p>
+      </div>
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-icon">1</div>
+          <h3>Analisis Foto</h3>
+          <p>Foto diubah ke ruang warna YCbCr dan dibagi menjadi blok 8&#215;8 menggunakan transformasi DCT.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-icon">2</div>
+          <h3>Sisipkan Nama</h3>
+          <p>Nama diubah menjadi bingkode, dilindungi dengan Hamming(7,4) ECC, lalu disisipkan ke koefisien luminance.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-icon">3</div>
+          <h3>Unduh &amp; Verifikasi</h3>
+          <p>Hasil disimpan sebagai PNG (lossless). Nama dapat diekstrak kembali untuk verifikasi keaslian.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq-section">
+    <div class="container">
+      <div class="section-head">
+        <h2>&#128212; Pertanyaan Umum</h2>
+        <p>Semua yang perlu Anda ketahui tentang Takasatmata.</p>
+      </div>
+      <div class="faq-grid">
+        <details class="faq-item">
+          <summary>Apakah watermark terlihat pada foto?</summary>
+          <p>Tidak. Watermark disisipkan pada koefisien DCT channel luminance dengan perubahan piksel yang sangat kecil, sehingga tidak terlihat oleh mata kasat.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Apakah tahan kompresi JPEG?</summary>
+          <p>Ya. Dengan redundansi (7&#215; default) dan Hamming ECC, watermark tetap dapat diekstrak meski foto dikompresi JPEG, tergantung kualitas kompresi.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Format apa yang didukung?</summary>
+          <p>JPG, PNG, dan WEBP untuk input. Hasil watermark diunduh sebagai PNG (lossless) agar watermark tidak rusak.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Apakah data foto saya diunggah ke server?</summary>
+          <p>Tidak. Semua proses berjalan sepenuhnya di browser Anda (client-side). Foto tidak pernah meninggalkan perangkat Anda.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Foto berapa ukuran maksimal?</summary>
+          <p>Maksimal 15 MB. Semakin besar foto, semakin banyak karakter nama yang dapat disisipkan.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Bagaimana jika foto di-screenshot atau dipotong?</summary>
+          <p>Screenshot dan crop kecil dapat merusak watermark. Deteksi dilengkapi pencarian offset untuk menangani potongan kecil di tepi foto.</p>
+        </details>
+      </div>
+    </div>
+  </section>
 
   <footer class="footer">
-    <p>Takasatmata · Watermark tak kasat mata tahan kompresi JPEG · Node.js + Express</p>
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <div class="footer-logo">Takasatmata<span class="dot">.</span></div>
+        <p>Watermark nama kreator tak kasat mata, tahan kompresi JPEG.</p>
+      </div>
+      <div class="footer-note">
+        <p>Dibangun dengan JavaScript murni (client-side) &bull; Siap deploy di Cloudflare Pages &bull; Tidak ada server &bull; Tidak ada pelacakan</p>
+      </div>
+    </div>
+    <div class="container">
+      <p class="footer-copy">&copy; 2026 Takasatmata. Dibuat untuk melindungi karyasastra foto Anda.</p>
+    </div>
   </footer>
 
-  <script src="app.js?v=17"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>

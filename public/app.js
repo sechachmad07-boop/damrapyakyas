@@ -1,6 +1,6 @@
-// app.js - client-side, tanpa backend
+// app.js - client-side, tanpa backend. Algoritma inti (DCT/Hamming) tetap utuh.
 const $ = (id) => document.getElementById(id);
-const N = 8, PI = Math.PI;
+const N = 8, PI = Math.PI, REP = 7;
 
 function dct2d(block) {
   const out = Array.from({ length: N }, () => new Array(N).fill(0));
@@ -31,7 +31,6 @@ function idct2d(coeffs) {
 function rgbToYcbcr(r,g,b){return{Y:0.299*r+0.587*g+0.114*b,Cb:-0.168736*r-0.331264*g+0.5*b+128,Cr:0.5*r-0.418688*g-0.081312*b+128};}
 function ycbcrToRgb(Y,Cb,Cr){return{r:Y+1.402*(Cr-128),g:Y-0.344136*(Cb-128)-0.714136*(Cr-128),b:Y+1.772*(Cb-128)};}
 function clamp(v,lo,hi){return v<lo?lo:(v>hi?hi:v);}
-// Hamming(7,4) ECC
 function hammingEncode(bits){
   const out=[];
   for(let i=0;i<bits.length;i+=4){
@@ -62,30 +61,45 @@ let detectImageData=null, detectFileName='';
 function toast(msg,type=''){const t=$('toast');t.textContent=msg;t.className='toast show '+type;clearTimeout(t._timer);t._timer=setTimeout(()=>{t.className='toast';},3200);}
 
 function setupDrop(zone,input,onFile){
-  if (zone.tagName !== 'LABEL') {
-    zone.addEventListener('click',()=>input.click());
-  }
   input.addEventListener('change',(e)=>{if(e.target.files&&e.target.files[0])onFile(e.target.files[0]);});
+  zone.addEventListener('click',()=>input.click());
   zone.addEventListener('dragover',(e)=>{e.preventDefault();zone.classList.add('drag');});
   zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
   zone.addEventListener('drop',(e)=>{e.preventDefault();zone.classList.remove('drag');if(e.dataTransfer.files&&e.dataTransfer.files[0])onFile(e.dataTransfer.files[0]);});
 }
 
-function hasAlphaChannel(data){for(let i=3;i<data.length;i+=40)if(data[i]<255)return true;return false;}
+function hasAlphaChannel(data){for(let i=3;i<data.length;i+=4)if(data[i]<255)return true;return false;}
+
+function showPanel(n){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.add('hidden'));
+  $(`panel${n}`).classList.remove('hidden');
+  document.querySelectorAll('.step').forEach((s,i)=>{
+    s.classList.toggle('active', i+1===n);
+    s.classList.toggle('done', i+1<n);
+    s.disabled = i+1>n && i+1!==n;
+  });
+  const pct = ((n-1)/2)*100;
+  $('stepFill').style.width = pct+'%';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function maxChars(W,H,rep){
+  const totalBlocks=Math.floor(W/8)*Math.floor(H/8);
+  return Math.max(0, Math.floor(totalBlocks/(14*rep)-2));
+}
 
 function analyzeFile(file){
   currentFileName=file.name;
+  currentImageData=null;
   const url=URL.createObjectURL(file);
+  $('previewImg').src=url;
+  $('cmpOrig').src=url;
   const img=new Image();
   img.onload=()=>{
-    // tampilkan preview dulu agar terlihat di mobile
-    $('previewImg').src=url;
-    $('previewCard').style.display='';
-    let canvas,ctx;
     try {
-      canvas=document.createElement('canvas');
+      const canvas=document.createElement('canvas');
       canvas.width=img.width;canvas.height=img.height;
-      ctx=canvas.getContext('2d',{colorSpace:'srgb'});ctx.drawImage(img,0,0);
+      const ctx=canvas.getContext('2d',{colorSpace:'srgb'});ctx.drawImage(img,0,0);
       currentImageData=ctx.getImageData(0,0,img.width,img.height);
     } catch(e) {
       toast('Gagal memproses gambar: '+e.message,'error');
@@ -93,7 +107,10 @@ function analyzeFile(file){
     }
     const W=img.width,H=img.height;
     const blocks=Math.floor(W/8)*Math.floor(H/8);
-    const cap3=Math.max(0,Math.floor((blocks/3-16)/8));
+    const cap=maxChars(W,H,REP);
+    $('capBlocks').textContent=blocks.toLocaleString();
+    $('capChars').textContent=cap+' karakter';
+    $('chipRedundansi').textContent=`Redundansi: ${REP}×`;
     const rows=[
       ['Nama file',file.name],
       ['Format',(file.type||'image').toUpperCase().replace('IMAGE/','')],
@@ -103,16 +120,16 @@ function analyzeFile(file){
       ['Rasio aspek',(W/H).toFixed(3)],
       ['Ukuran file',(file.size/1024).toFixed(1)+' KB'],
       ['Transparansi (alpha)',hasAlphaChannel(currentImageData.data)?'Ya':'Tidak'],
-      ['Blok DCT 8×8',blocks],
-      ['Kapasitas nama (3x)',cap3+' karakter'],
+      ['Blok DCT 8×8',blocks.toLocaleString()],
+      ['Kapasitas nama (7×)',cap+' karakter'],
     ];
-    $('infoTable').innerHTML=rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+    $('infoTable').innerHTML=rows.map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('');
+    $('next1').disabled=false;
     toast('Foto berhasil dianalisis','success');
   };
   img.onerror=()=>toast('Gagal memuat gambar','error');
   img.src=url;
 }
-setupDrop($('dropZone'),$('fileInput'),analyzeFile);
 
 function embedImageData(imageData,text,strength,rep){
   const W=imageData.width,H=imageData.height;
@@ -128,13 +145,12 @@ function embedImageData(imageData,text,strength,rep){
   const bits=[];
   for(let i=15;i>=0;i--)bits.push((len>>i)&1);
   for(let k=0;k<bytes.length;k++)for(let i=7;i>=0;i--)bits.push((bytes[k]>>i)&1);
-  // pad to multiple of 4 for Hamming
   while(bits.length % 4 !== 0) bits.push(0);
   const eccBits = hammingEncode(bits);
   const totalBits = eccBits.length;
   const blocksX=Math.floor(W/8),blocksY=Math.floor(H/8),totalBlocks=blocksX*blocksY;
   const needed=totalBits*rep;
-  if(needed>totalBlocks)throw new Error('Nama terlalu panjang. Kapasitas: '+Math.floor((totalBlocks/rep*4/7-16)/8)+' karakter.');
+  if(needed>totalBlocks)throw new Error('Nama terlalu panjang untuk foto ini. Maksimal: '+maxChars(W,H,rep)+' karakter.');
   let blockCounter=0;
   for(let by=0;by<blocksY;by++)for(let bx=0;bx<blocksX;bx++){
     const mi=Math.floor(blockCounter/rep);
@@ -185,14 +201,12 @@ function extractImageData(imageData,rep,useECC=true,ox=0,oy=0){
     rawBits[bc++]=(coeffs[2][1]>coeffs[1][2])?1:0;
   }
   function majority(i){let ones=0;for(let k=0;k<rep;k++){const idx=i*rep+k;if(idx<totalBlocks)ones+=rawBits[idx];}return (ones*2>=rep)?1:0;}
-
-  // ECC path: decode length (4 codewords=28 bits) then data
   if(useECC){
-    const lenCodewordBits = 4*7; // 28
+    const lenCodewordBits = 4*7;
     if(lenCodewordBits*rep > totalBlocks) throw new Error('Gambar terlalu kecil.');
     const lenCW=[];
     for(let i=0;i<lenCodewordBits;i++) lenCW.push(majority(i));
-    const lenData=hammingDecode(lenCW); // 16 bits
+    const lenData=hammingDecode(lenCW);
     let len=0;
     for(let i=0;i<16;i++) len=(len<<1)|lenData[i];
     if(len<0||len>200) throw new Error('Header panjang tidak valid (ECC). Panjang terbaca: '+len);
@@ -203,7 +217,6 @@ function extractImageData(imageData,rep,useECC=true,ox=0,oy=0){
     const dataCW=[];
     for(let i=0;i<dataCWBits;i++) dataCW.push(majority(lenCodewordBits+i));
     const decoded=hammingDecode(dataCW);
-    // trim to dataBitsCount
     const bits=decoded.slice(0,dataBitsCount);
     const outBytes=new Uint8Array(len);
     for(let j=0;j<len;j++){let byte=0;for(let i=0;i<8;i++)byte=(byte<<1)|bits[j*8+i];outBytes[j]=byte;}
@@ -211,8 +224,6 @@ function extractImageData(imageData,rep,useECC=true,ox=0,oy=0){
     if(/[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFD]/.test(text)) throw new Error('Teks tidak valid (ECC).');
     return text;
   }
-
-  // Fallback raw (tanpa ECC, untuk watermark lama)
   if(16*rep>totalBlocks)throw new Error('Gambar terlalu kecil.');
   let len=0;for(let i=0;i<16;i++)len=(len<<1)|majority(i);
   if(len<0||len>100000||(16+len*8)*rep>totalBlocks)throw new Error('Header panjang tidak valid. Panjang terbaca: '+len);
@@ -233,19 +244,40 @@ function imageDataToBlob(imageData){
 function imageDataToDataURLFallback(imageData){const c=document.createElement('canvas');c.width=imageData.width;c.height=imageData.height;const ctx=c.getContext('2d',{colorSpace:'srgb'});ctx.putImageData(imageData,0,0);return c.toDataURL('image/png');}
 function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-$('processBtn').addEventListener('click',()=>{
+// ---------- Step 1: upload ----------
+setupDrop($('dropZone'),$('fileInput'),analyzeFile);
+$('username').addEventListener('input',()=>{
+  $('next1').disabled = !($('username').value.trim() && currentImageData);
+});
+$('next1').addEventListener('click',()=>{
+  if(!$('username').value.trim()){toast('Masukkan nama pengguna terlebih dahulu','error');return;}
+  if(!currentImageData){toast('Upload foto terlebih dahulu','error');return;}
+  showPanel(2);
+});
+
+// ---------- Step 2: info & settings ----------
+const strength=$('strength'), strengthVal=$('strengthVal');
+strengthVal.textContent=strength.value;
+strength.addEventListener('input',()=>{strengthVal.textContent=strength.value;});
+const capCheck=()=>{
+  const username=$('username').value.trim();
+  const cap=maxChars(currentImageData.width,currentImageData.height,REP);
+  $('next2').disabled = !(currentImageData && username && username.length<=cap);
+};
+$('username').addEventListener('input',capCheck);
+$('prev2').addEventListener('click',()=>showPanel(1));
+$('next2').addEventListener('click',()=>{
   const username=$('username').value.trim();
   if(!username){toast('Masukkan nama pengguna terlebih dahulu','error');return;}
   if(!currentImageData){toast('Upload foto terlebih dahulu','error');return;}
-  const W=currentImageData.width,H=currentImageData.height;
-  const blocks=Math.floor(W/8)*Math.floor(H/8);
-  const cap3=Math.max(0,Math.floor((blocks/3-16)/8));
-  if(username.length>cap3){toast('Nama terlalu panjang (maks '+cap3+' karakter)','error');return;}
-  $('processBtn').disabled=true;
-  $('processBtn').textContent='⏳ Memproses...';
+  const cap=maxChars(currentImageData.width,currentImageData.height,REP);
+  if(username.length>cap){toast('Nama terlalu panjang (maks '+cap+' karakter)','error');return;}
+  $('next2').disabled=true;
+  $('next2').textContent='⏳ Memproses...';
   setTimeout(async ()=>{
     try{
-      const result=embedImageData(currentImageData,username,100,7);
+      const parseStrength=parseFloat(strength.value)||50;
+      const result=embedImageData(currentImageData,username,parseStrength,REP);
       watermarkedImageData=result.imageData;
       let url, blob;
       try { blob=await imageDataToBlob(result.imageData); url=URL.createObjectURL(blob); }
@@ -253,33 +285,75 @@ $('processBtn').addEventListener('click',()=>{
       watermarkedBlob=blob;
       if(watermarkedDataURL && watermarkedDataURL.startsWith('blob:')) URL.revokeObjectURL(watermarkedDataURL);
       watermarkedDataURL=url;
-      $('resultImg').src=url;
-      $('resultCard').style.display='';
+      $('cmpWm').src=url;
+      initCompare();
       const rows=[
         ['Nama pengguna',username],
         ['Lebar',result.imageData.width+' px'],
         ['Tinggi',result.imageData.height+' px'],
+        ['Kekuatan',parseStrength],
         ['PSNR (kualitas)',result.psnr+' dB'],
         ['MSE',result.mse],
+        ['Bits terpakai',result.bitsUsed.toLocaleString()],
+        ['Total blok DCT',result.totalBlocks.toLocaleString()],
         ['Status','Watermark tak kasat mata tersisip'],
       ];
-      $('resultTable').innerHTML=rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+      $('resultTable').innerHTML=rows.map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('');
       $('downloadBtn').href=url;
       $('downloadBtn').download='watermarked_'+username.replace(/[^a-z0-9]/gi,'_')+'.png';
+      showPanel(3);
       toast('Berhasil! Nama tersisip & siap diunduh','success');
     }catch(e){toast(e.message,'error');}
-    finally{$('processBtn').disabled=false;$('processBtn').textContent='💧 Sisipkan Nama & Download';}
+    finally{$('next2').disabled=false;$('next2').textContent='Sisipkan Nama & Lihat Hasil';}
   },50);
 });
 
+// ---------- Before/After slider ----------
+function initCompare(){
+  const wrap=$('cmpSliderWrap')||$('cmpSlider').closest('.compare-slider-wrap');
+  const orig=$('cmpOrig'), wm=$('cmpWm'), slider=$('cmpSlider'), handle=$('cmpHandle');
+  [orig,wm].forEach(img=>{
+    img.style.position='absolute';img.style.inset='0';img.style.width='100%';img.style.height='100%';img.style.objectFit='cover';img.style.display='block';
+  });
+  orig.style.clipPath='inset(0 0 0 0)';
+  wm.style.clipPath='inset(0 0 0 50%)';
+  const update=(val)=>{
+    orig.style.clipPath=`inset(0 ${100-val}% 0 0)`;
+    wm.style.clipPath=`inset(0 0 0 ${val}%)`;
+    handle.style.left=`${val}%`;
+    handle.style.transform=`translate(-${val}%, -50%)`;
+  };
+  update(slider.value);
+  let dragging=false;
+  slider.addEventListener('input',()=>{update(slider.value);});
+  slider.addEventListener('mousedown',()=>{dragging=true;});
+  slider.addEventListener('touchstart',()=>{dragging=true;},{passive:false});
+  window.addEventListener('mouseup',()=>{dragging=false;});
+  window.addEventListener('touchend',()=>{dragging=false;});
+  wrap.addEventListener('mousemove',(e)=>{
+    if(!dragging) return;
+    const rect=wrap.getBoundingClientRect();
+    let x=((e.clientX-rect.left)/rect.width)*100;
+    x=Math.max(0,Math.min(100,x));
+    slider.value=x;update(x);
+  });
+  wrap.addEventListener('touchmove',(e)=>{
+    if(!dragging) return;
+    const rect=wrap.getBoundingClientRect();
+    const x=((e.touches[0].clientX-rect.left)/rect.width)*100;
+    slider.value=Math.max(0,Math.min(100,x));
+    update(slider.value);
+  },{passive:false});
+}
+
+// ---------- Step 3: result ----------
 $('verifyBtn').addEventListener('click',()=>{
   if(!watermarkedImageData){toast('Belum ada hasil','error');return;}
   $('verifyBtn').disabled=true;
   $('verifyBtn').textContent='⏳ Memverifikasi...';
-  $('verifyBox').style.display='';
-  $('verifyBox').innerHTML='<div class="label">Memproses...</div>';
+  const box=$('verifyBox'); box.classList.remove('hidden');
+  box.innerHTML='<div class="label">Memproses...</div>';
   setTimeout(()=>{
-    // coba beberapa redundansi (embed pakai rep 5), pilih hasil terbaik
     let bestText=null;
     outer2: for (const useECC of [true,false]) {
       for (const r of [7,5,3,1]) {
@@ -296,28 +370,40 @@ $('verifyBtn').addEventListener('click',()=>{
       const username=$('username').value.trim();
       const text=bestText!==null?bestText:'';
       const ok=(text===username);
-      $('verifyBox').innerHTML=`
+      box.innerHTML=`
         <div class="label">Teks terdeteksi:</div>
         <div class="value ${ok?'ok':'bad'}">"${escapeHtml(text)}"</div>
-        <div class="label" style="margin-top:.6rem;">${ok?'✅ Verifikasi berhasil — nama cocok':'⚠️ Tidak cocok'}</div>`;
+        <div class="${ok?'ok-msg':'bad-msg'}" style="margin-top:.6rem;">${ok?'✅ Verifikasi berhasil — nama cocok':'⚠️ Tidak cocok'}</div>`;
       toast(ok?'Verifikasi berhasil':'Verifikasi gagal',ok?'success':'error');
     }catch(e){
-      $('verifyBox').innerHTML=`<div class="value bad">${escapeHtml(e.message)}</div>`;
+      box.innerHTML=`<div class="value bad">${escapeHtml(e.message)}</div>`;
       toast(e.message,'error');
     }finally{
       $('verifyBtn').disabled=false;
-      $('verifyBtn').textContent='🔍 Verifikasi';
+      $('verifyBtn').textContent='🔍 Verifikasi Nama';
     }
   },50);
 });
+$('prev3').addEventListener('click',()=>showPanel(2));
+$('newOne').addEventListener('click',()=>{
+  currentImageData=null; watermarkedImageData=null; watermarkedBlob=null; watermarkedDataURL=null; currentFileName='';
+  $('fileInput').value=''; $('detectFileInput').value='';
+  $('username').value='';
+  $('previewImg').src=''; $('cmpOrig').src=''; $('cmpWm').src='';
+  $('infoTable').innerHTML=''; $('resultTable').innerHTML='';
+  $('verifyBox').classList.add('hidden');
+  $('dropZone').classList.remove('drag'); $('detectDropZone').classList.remove('drag');
+  $('next1').disabled=true; $('next2').disabled=true;
+  toast('Siap buat baru','success');
+  showPanel(1);
+});
 
-// ---------- Deteksi Watermark ----------
+// ---------- Deteksi watermark ----------
 function analyzeDetectFile(file) {
   detectFileName = file.name;
   const url = URL.createObjectURL(file);
-  // tampilkan card segera agar user melihat proses
   $('detectPreviewImg').src = url;
-  $('detectPreviewCard').style.display = '';
+  $('detectPreviewCard').classList.remove('hidden');
   $('detectInfoTable').innerHTML = '<tr><td colspan="2">Memuat gambar...</td></tr>';
   const img = new Image();
   let loaded = false;
@@ -354,7 +440,8 @@ function analyzeDetectFile(file) {
       ['Blok DCT 8×8', blocks],
     ];
     $('detectInfoTable').innerHTML = rows.map(([k, v]) =>
-      `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+      `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('');
+    $('detectBtn').disabled=false;
     toast('Foto siap dideteksi', 'success');
   };
   img.onerror = () => toast('Gagal memuat gambar', 'error');
@@ -366,13 +453,10 @@ $('detectBtn').addEventListener('click', () => {
   if (!detectImageData) { toast('Upload foto terlebih dahulu', 'error'); return; }
   $('detectBtn').disabled = true;
   $('detectBtn').textContent = '⏳ Mendeteksi...';
-  $('detectResult').style.display = '';
+  $('detectResult').classList.remove('hidden');
   $('detectResult').innerHTML = '<div class="label">Memproses...</div>';
   setTimeout(() => {
-    // coba beberapa redundansi, pilih hasil dengan skor terbaik (paling banyak karakter terbaca)
-    // coba rep 5 dulu (sesuai embed), baru fallback ke 3/1
     let bestText = null, bestRep = null, bestValid = false;
-    // 1. offset (0,0) dengan semua rep/ECC
     outer: for (const useECC of [true, false]) {
       for (const r of [7, 5, 3, 1]) {
         try {
@@ -388,7 +472,6 @@ $('detectBtn').addEventListener('click', () => {
         } catch (e) { /* coba lain */ }
       }
     }
-    // 2. jika gagal, coba offset 0..3 (untuk screenshot/crop kecil)
     if (bestText === null || !bestValid) {
       outer2: for (let oy = 0; oy <= 3; oy++) {
         for (let ox = 0; ox <= 3; ox++) {
@@ -415,12 +498,12 @@ $('detectBtn').addEventListener('click', () => {
         $('detectResult').innerHTML = `
           <div class="label">Watermark terdeteksi (redundansi ${usedRep}x):</div>
           <div class="value ${cls}">"${escapeHtml(found)}"</div>
-          <div class="label" style="margin-top:.6rem;">${msg}</div>`;
+          <div class="${bestValid?'ok-msg':'bad-msg'}" style="margin-top:.6rem;">${msg}</div>`;
         toast(bestValid ? 'Deteksi berhasil' : 'Deteksi tidak pasti', bestValid ? 'success' : 'error');
       } else {
         $('detectResult').innerHTML = `
           <div class="value bad">Tidak terdeteksi watermark yang valid pada foto ini.</div>
-          <div class="label" style="margin-top:.6rem;">Tips: gunakan foto hasil download (PNG) dari aplikasi ini. Screenshot/kompresi dapat merusak watermark. Jika tetap gagal, coba di browser yang sama dengan saat watermark dibuat.</div>`;
+          <div class="label" style="margin-top:.6rem;">Tips: gunakan foto hasil download (PNG) dari aplikasi ini. Screenshot/kompresi dapat merusak watermark.</div>`;
         toast('Tidak terdeteksi watermark', 'error');
       }
     } catch (e) {
@@ -437,7 +520,6 @@ $('detectBtn').addEventListener('click', () => {
 $('downloadBtn').addEventListener('click', async () => {
   if (!watermarkedDataURL) { toast('Belum ada hasil', 'error'); return; }
   const filename = 'watermarked_' + ($('username').value.trim().replace(/[^a-z0-9]/gi, '_') || 'foto') + '.png';
-  // iOS/Safari: gunakan Web Share API jika tersedia (lebih andal untuk simpan gambar)
   if (watermarkedBlob && navigator.share && navigator.canShare && navigator.canShare({ files: [new File([watermarkedBlob], filename, { type: 'image/png' })] })) {
     try {
       await navigator.share({ files: [new File([watermarkedBlob], filename, { type: 'image/png' })], title: 'Watermarked' });
@@ -447,7 +529,6 @@ $('downloadBtn').addEventListener('click', async () => {
       if (e.name !== 'AbortError') toast('Gagal share: ' + e.message, 'error');
     }
   }
-  // Fallback: anchor download (desktop/Android)
   const a = document.createElement('a');
   a.href = watermarkedDataURL;
   a.download = filename;
@@ -456,3 +537,8 @@ $('downloadBtn').addEventListener('click', async () => {
   document.body.removeChild(a);
   toast('Download dimulai', 'success');
 });
+
+// ---------- Init ----------
+$('startBtn').addEventListener('click',()=>{showPanel(1);});
+$('next1').disabled=true;
+$('next2').disabled=true;
