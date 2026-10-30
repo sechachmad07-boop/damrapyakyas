@@ -56,7 +56,7 @@ function hammingDecode(cw){
   return data;
 }
 
-let currentImageData=null, currentFileName='', watermarkedImageData=null, watermarkedDataURL=null;
+let currentImageData=null, currentFileName='', watermarkedImageData=null, watermarkedDataURL=null, watermarkedBlob=null;
 let detectImageData=null, detectFileName='';
 
 function toast(msg,type=''){const t=$('toast');t.textContent=msg;t.className='toast show '+type;clearTimeout(t._timer);t._timer=setTimeout(()=>{t.className='toast';},3200);}
@@ -247,9 +247,10 @@ $('processBtn').addEventListener('click',()=>{
     try{
       const result=embedImageData(currentImageData,username,100,7);
       watermarkedImageData=result.imageData;
-      let url;
-      try { url=URL.createObjectURL(await imageDataToBlob(result.imageData)); }
-      catch(e){ url=imageDataToDataURLFallback(result.imageData); }
+      let url, blob;
+      try { blob=await imageDataToBlob(result.imageData); url=URL.createObjectURL(blob); }
+      catch(e){ blob=null; url=imageDataToDataURLFallback(result.imageData); }
+      watermarkedBlob=blob;
       if(watermarkedDataURL && watermarkedDataURL.startsWith('blob:')) URL.revokeObjectURL(watermarkedDataURL);
       watermarkedDataURL=url;
       $('resultImg').src=url;
@@ -430,4 +431,28 @@ $('detectBtn').addEventListener('click', () => {
       $('detectBtn').textContent = '🔍 Deteksi Watermark';
     }
   }, 50);
+});
+
+// ---------- Download (iOS-friendly) ----------
+$('downloadBtn').addEventListener('click', async () => {
+  if (!watermarkedDataURL) { toast('Belum ada hasil', 'error'); return; }
+  const filename = 'watermarked_' + ($('username').value.trim().replace(/[^a-z0-9]/gi, '_') || 'foto') + '.png';
+  // iOS/Safari: gunakan Web Share API jika tersedia (lebih andal untuk simpan gambar)
+  if (watermarkedBlob && navigator.share && navigator.canShare && navigator.canShare({ files: [new File([watermarkedBlob], filename, { type: 'image/png' })] })) {
+    try {
+      await navigator.share({ files: [new File([watermarkedBlob], filename, { type: 'image/png' })], title: 'Watermarked' });
+      toast('Pilih "Simpan Gambar" di menu share', 'success');
+      return;
+    } catch (e) {
+      if (e.name !== 'AbortError') toast('Gagal share: ' + e.message, 'error');
+    }
+  }
+  // Fallback: anchor download (desktop/Android)
+  const a = document.createElement('a');
+  a.href = watermarkedDataURL;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  toast('Download dimulai', 'success');
 });
