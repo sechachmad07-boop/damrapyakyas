@@ -33,6 +33,7 @@ function ycbcrToRgb(Y,Cb,Cr){return{r:Y+1.402*(Cr-128),g:Y-0.344136*(Cb-128)-0.7
 function clamp(v,lo,hi){return v<lo?lo:(v>hi?hi:v);}
 
 let currentImageData=null, currentFileName='', watermarkedImageData=null, watermarkedDataURL=null;
+let detectImageData=null, detectFileName='';
 
 function toast(msg,type=''){const t=$('toast');t.textContent=msg;t.className='toast show '+type;clearTimeout(t._timer);t._timer=setTimeout(()=>{t.className='toast';},3200);}
 
@@ -232,4 +233,67 @@ $('verifyBtn').addEventListener('click',()=>{
       $('verifyBtn').textContent='🔍 Verifikasi';
     }
   },50);
+});
+
+// ---------- Deteksi Watermark ----------
+function analyzeDetectFile(file) {
+  detectFileName = file.name;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    $('detectPreviewImg').src = url;
+    $('detectPreviewCard').style.display = '';
+    let canvas, ctx;
+    try {
+      canvas = document.createElement('canvas');
+      canvas.width = img.width; canvas.height = img.height;
+      ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
+      detectImageData = ctx.getImageData(0, 0, img.width, img.height);
+    } catch (e) {
+      toast('Gagal memproses gambar: ' + e.message, 'error');
+      return;
+    }
+    const W = img.width, H = img.height;
+    const blocks = Math.floor(W / 8) * Math.floor(H / 8);
+    const rows = [
+      ['Nama file', file.name],
+      ['Format', (file.type || 'image').toUpperCase().replace('IMAGE/', '')],
+      ['Lebar (width)', W + ' px'],
+      ['Tinggi (height)', H + ' px'],
+      ['Megapiksel', (W * H / 1e6).toFixed(2) + ' MP'],
+      ['Rasio aspek', (W / H).toFixed(3)],
+      ['Ukuran file', (file.size / 1024).toFixed(1) + ' KB'],
+      ['Blok DCT 8×8', blocks],
+    ];
+    $('detectInfoTable').innerHTML = rows.map(([k, v]) =>
+      `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+    toast('Foto siap dideteksi', 'success');
+  };
+  img.onerror = () => toast('Gagal memuat gambar', 'error');
+  img.src = url;
+}
+setupDrop($('detectDropZone'), $('detectFileInput'), analyzeDetectFile);
+
+$('detectBtn').addEventListener('click', () => {
+  if (!detectImageData) { toast('Upload foto terlebih dahulu', 'error'); return; }
+  $('detectBtn').disabled = true;
+  $('detectBtn').textContent = '⏳ Mendeteksi...';
+  $('detectResult').style.display = '';
+  $('detectResult').innerHTML = '<div class="label">Memproses...</div>';
+  setTimeout(() => {
+    try {
+      const text = extractImageData(detectImageData, 3);
+      $('detectResult').innerHTML = `
+        <div class="label">Watermark terdeteksi:</div>
+        <div class="value ok">"${escapeHtml(text)}"</div>
+        <div class="label" style="margin-top:.6rem;">✅ Deteksi berhasil</div>`;
+      toast('Deteksi berhasil', 'success');
+    } catch (e) {
+      $('detectResult').innerHTML = `<div class="value bad">${escapeHtml(e.message)}</div>`;
+      toast(e.message, 'error');
+    } finally {
+      $('detectBtn').disabled = false;
+      $('detectBtn').textContent = '🔍 Deteksi Watermark';
+    }
+  }, 50);
 });

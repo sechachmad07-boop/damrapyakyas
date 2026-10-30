@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Takasatmata — Watermark Nama Kreator</title>
-  <link rel="stylesheet" href="style.css?v=5" />
+  <link rel="stylesheet" href="style.css?v=6" />
 </head>
 <body>
   <header class="hero">
@@ -66,12 +66,40 @@
         </div>
       </div>
     </section>
+    <section class="card">
+      <h2>🔍 Deteksi Watermark & Info Foto</h2>
+      <div class="form-grid">
+        <label class="upload-zone" id="detectDropZone" for="detectFileInput">
+          <input type="file" id="detectFileInput" accept="image/*" hidden />
+          <div class="upload-inner">
+            <div class="upload-icon">🔎</div>
+            <p>Klik atau seret foto (watermarked) ke sini</p>
+            <small>JPG, PNG, WEBP · Maks 15 MB</small>
+          </div>
+        </label>
+      </div>
+      <section class="card" id="detectPreviewCard" style="display:none; margin-top:1rem;">
+        <div class="preview-row">
+          <div class="preview-box">
+            <img id="detectPreviewImg" alt="detect" />
+          </div>
+          <div class="info-box">
+            <table class="info-table" id="detectInfoTable"></table>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn primary" id="detectBtn">🔍 Deteksi Watermark</button>
+        </div>
+        <div id="detectResult" class="result-box" style="display:none;"></div>
+      </section>
+    </section>
+
   </main>
 
   <footer class="footer">
     <p>Takasatmata · Watermark tak kasat mata tahan kompresi JPEG · Node.js + Express</p>
   </footer>
 
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>
