@@ -165,17 +165,22 @@ function embedImageData(imageData,text,strength,rep){
   return{imageData:new ImageData(out,W,H),psnr:+psnr.toFixed(2),mse:+mse.toFixed(4),bitsUsed:totalBits,totalBlocks};
 }
 
-function extractImageData(imageData,rep,useECC=true){
+function extractImageData(imageData,rep,useECC=true,ox=0,oy=0){
   const W=imageData.width,H=imageData.height;
   const data=imageData.data;
   const nPix=W*H;
   const Y=new Float64Array(nPix);
   for(let i=0;i<nPix;i++){const c=rgbToYcbcr(data[i*4],data[i*4+1],data[i*4+2]);Y[i]=c.Y;}
-  const blocksX=Math.floor(W/8),blocksY=Math.floor(H/8),totalBlocks=blocksX*blocksY;
+  const startX=ox, startY=oy;
+  const blocksX=Math.floor((W-startX)/8),blocksY=Math.floor((H-startY)/8),totalBlocks=blocksX*blocksY;
+  if(totalBlocks<1) throw new Error('Gambar terlalu kecil.');
   const rawBits=new Array(totalBlocks);let bc=0;
   for(let by=0;by<blocksY;by++)for(let bx=0;bx<blocksX;bx++){
     const blk=Array.from({length:N},()=>new Array(N).fill(0));
-    for(let x=0;x<N;x++)for(let y=0;y<N;y++)blk[x][y]=Y[(by*N+x)*W+(bx*N+y)]-128;
+    for(let x=0;x<N;x++)for(let y=0;y<N;y++){
+      const px=oy+by*N+x, py=ox+bx*N+y;
+      if(px<H && py<W) blk[x][y]=Y[px*W+py]-128;
+    }
     const coeffs=dct2d(blk);
     rawBits[bc++]=(coeffs[2][1]>coeffs[1][2])?1:0;
   }
@@ -366,20 +371,39 @@ $('detectBtn').addEventListener('click', () => {
     // coba beberapa redundansi, pilih hasil dengan skor terbaik (paling banyak karakter terbaca)
     // coba rep 5 dulu (sesuai embed), baru fallback ke 3/1
     let bestText = null, bestRep = null, bestValid = false;
+    // 1. offset (0,0) dengan semua rep/ECC
     outer: for (const useECC of [true, false]) {
       for (const r of [7, 5, 3, 1]) {
         try {
-          const t = extractImageData(detectImageData, r, useECC);
+          const t = extractImageData(detectImageData, r, useECC, 0, 0);
           if (t && t.length > 0) {
             const hasBad = /[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFD]/.test(t);
             if (!hasBad) {
               bestText = t; bestRep = r; bestValid = true;
               break outer;
             }
-            // simpan fallback pertama yang punya skor tinggi
             if (bestText === null) { bestText = t; bestRep = r; bestValid = false; }
           }
         } catch (e) { /* coba lain */ }
+      }
+    }
+    // 2. jika gagal, coba offset 0..3 (untuk screenshot/crop kecil)
+    if (bestText === null || !bestValid) {
+      outer2: for (let oy = 0; oy <= 3; oy++) {
+        for (let ox = 0; ox <= 3; ox++) {
+          if (ox === 0 && oy === 0) continue;
+          try {
+            const t = extractImageData(detectImageData, 7, true, ox, oy);
+            if (t && t.length > 0) {
+              const hasBad = /[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFD]/.test(t);
+              if (!hasBad) {
+                bestText = t; bestRep = 7; bestValid = true;
+                break outer2;
+              }
+              if (bestText === null) { bestText = t; bestRep = 7; bestValid = false; }
+            }
+          } catch (e) { /* coba lain */ }
+        }
       }
     }
     const found = bestText, usedRep = bestRep;
@@ -395,7 +419,7 @@ $('detectBtn').addEventListener('click', () => {
       } else {
         $('detectResult').innerHTML = `
           <div class="value bad">Tidak terdeteksi watermark yang valid pada foto ini.</div>
-          <div class="label" style="margin-top:.6rem;">Tips: gunakan foto hasil download (PNG) dari aplikasi ini, jangan screenshot/kompresi. Jika tetap gagal, coba di browser yang sama dengan saat watermark dibuat.</div>`;
+          <div class="label" style="margin-top:.6rem;">Tips: gunakan foto hasil download (PNG) dari aplikasi ini. Screenshot/kompresi dapat merusak watermark. Jika tetap gagal, coba di browser yang sama dengan saat watermark dibuat.</div>`;
         toast('Tidak terdeteksi watermark', 'error');
       }
     } catch (e) {
