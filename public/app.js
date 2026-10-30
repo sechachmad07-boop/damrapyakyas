@@ -273,9 +273,23 @@ $('verifyBtn').addEventListener('click',()=>{
   $('verifyBox').style.display='';
   $('verifyBox').innerHTML='<div class="label">Memproses...</div>';
   setTimeout(()=>{
+    // coba beberapa redundansi (embed pakai rep 5), pilih hasil terbaik
+    let bestText=null, bestScore=-1;
+    for (const useECC of [true,false]) {
+      for (const r of [5,3,1]) {
+        try {
+          const t=extractImageData(watermarkedImageData,r,useECC);
+          if(t && t.length>0){
+            const score=(t.match(/[a-zA-Z0-9 ]/g)||[]).length;
+            const hasBad=/[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFD]/.test(t);
+            if(!hasBad && score>bestScore){bestText=t;bestScore=score;}
+          }
+        } catch(e){/* coba lain */}
+      }
+    }
     try{
-      const text=extractImageData(watermarkedImageData,3);
       const username=$('username').value.trim();
+      const text=bestText!==null?bestText:'';
       const ok=(text===username);
       $('verifyBox').innerHTML=`
         <div class="label">Teks terdeteksi:</div>
@@ -351,8 +365,7 @@ $('detectBtn').addEventListener('click', () => {
   $('detectResult').innerHTML = '<div class="label">Memproses...</div>';
   setTimeout(() => {
     // coba beberapa redundansi, pilih hasil dengan skor terbaik (paling banyak karakter terbaca)
-    let bestText = null, bestRep = null, bestScore = -1;
-    // coba ECC dulu (watermark baru), lalu raw (watermark lama)
+    let bestText = null, bestRep = null, bestScore = -1, fallbackText = null, fallbackRep = null, fallbackScore = -1, bestValid = false;
     for (const useECC of [true, false]) {
       for (const r of [5, 3, 1]) {
         try {
@@ -361,20 +374,28 @@ $('detectBtn').addEventListener('click', () => {
             const score = (t.match(/[a-zA-Z0-9 ]/g) || []).length;
             const hasBad = /[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFD]/.test(t);
             if (!hasBad && score > bestScore) {
-              bestText = t; bestRep = r; bestScore = score;
+              bestText = t; bestRep = r; bestScore = score; bestValid = true;
+            }
+            if (score > fallbackScore) {
+              fallbackText = t; fallbackRep = r; fallbackScore = score;
             }
           }
         } catch (e) { /* coba lain */ }
       }
     }
+    if (bestText === null && fallbackText !== null) {
+      bestText = fallbackText; bestRep = fallbackRep; bestValid = false;
+    }
     const found = bestText, usedRep = bestRep;
     try {
       if (found !== null) {
+        const cls = bestValid ? 'ok' : 'bad';
+        const msg = bestValid ? '✅ Deteksi berhasil' : '⚠️ Hasil tidak pasti (mungkin terdistorsi)';
         $('detectResult').innerHTML = `
           <div class="label">Watermark terdeteksi (redundansi ${usedRep}x):</div>
-          <div class="value ok">"${escapeHtml(found)}"</div>
-          <div class="label" style="margin-top:.6rem;">✅ Deteksi berhasil</div>`;
-        toast('Deteksi berhasil', 'success');
+          <div class="value ${cls}">"${escapeHtml(found)}"</div>
+          <div class="label" style="margin-top:.6rem;">${msg}</div>`;
+        toast(bestValid ? 'Deteksi berhasil' : 'Deteksi tidak pasti', bestValid ? 'success' : 'error');
       } else {
         $('detectResult').innerHTML = `
           <div class="value bad">Tidak terdeteksi watermark yang valid pada foto ini.</div>
