@@ -41,6 +41,7 @@ body {
 
 .form-grid { display: grid; gap: 1rem; }
 .form-grid label { display: flex; flex-direction: column; gap: .3rem; font-size: .9rem; color: #cbd5e1; }
+.field-label { font-size: .9rem; color: #cbd5e1; margin-bottom: .3rem; }
 textarea, select, input[type="range"] { padding: .5rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.3); color: #e2e8f0; font-family: inherit; }
 textarea { resize: vertical; }
 

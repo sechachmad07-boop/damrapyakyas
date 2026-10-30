@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Takasatmata — Watermark Nama Kreator</title>
-  <link rel="stylesheet" href="style.css?v=4" />
+  <link rel="stylesheet" href="style.css?v=5" />
 </head>
 <body>
   <header class="hero">
@@ -23,16 +23,15 @@
         <label>Nama Pengguna / Kreator
           <input type="text" id="username" placeholder="Contoh: Budi Santoso" maxlength="60" />
         </label>
-        <label>Foto
-          <div class="upload-zone" id="dropZone">
+        <div class="field-label">Foto</div>
+        <label class="upload-zone" id="dropZone" for="fileInput">
             <input type="file" id="fileInput" accept="image/*" hidden />
             <div class="upload-inner">
               <div class="upload-icon">🖼️</div>
               <p>Klik atau seret foto ke sini</p>
               <small>JPG, PNG, WEBP · Maks 15 MB</small>
             </div>
-          </div>
-        </label>
+          </label>
       </div>
     </section>
 
@@ -73,6 +72,6 @@
     <p>Takasatmata · Watermark tak kasat mata tahan kompresi JPEG · Node.js + Express</p>
   </footer>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

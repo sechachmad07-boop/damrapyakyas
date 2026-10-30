@@ -37,7 +37,9 @@ let currentImageData=null, currentFileName='', watermarkedImageData=null, waterm
 function toast(msg,type=''){const t=$('toast');t.textContent=msg;t.className='toast show '+type;clearTimeout(t._timer);t._timer=setTimeout(()=>{t.className='toast';},3200);}
 
 function setupDrop(zone,input,onFile){
-  zone.addEventListener('click',()=>input.click());
+  if (zone.tagName !== 'LABEL') {
+    zone.addEventListener('click',()=>input.click());
+  }
   input.addEventListener('change',(e)=>{if(e.target.files&&e.target.files[0])onFile(e.target.files[0]);});
   zone.addEventListener('dragover',(e)=>{e.preventDefault();zone.classList.add('drag');});
   zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
