@@ -239,10 +239,21 @@ $('verifyBtn').addEventListener('click',()=>{
 function analyzeDetectFile(file) {
   detectFileName = file.name;
   const url = URL.createObjectURL(file);
+  // tampilkan card segera agar user melihat proses
+  $('detectPreviewImg').src = url;
+  $('detectPreviewCard').style.display = '';
+  $('detectInfoTable').innerHTML = '<tr><td colspan="2">Memuat gambar...</td></tr>';
   const img = new Image();
+  let loaded = false;
+  const timer = setTimeout(() => {
+    if (!loaded) {
+      toast('Gagal memuat gambar (timeout). Coba format JPG/PNG.', 'error');
+      $('detectInfoTable').innerHTML = '<tr><td colspan="2">Gagal memuat gambar. Coba format JPG/PNG.</td></tr>';
+    }
+  }, 10000);
   img.onload = () => {
-    $('detectPreviewImg').src = url;
-    $('detectPreviewCard').style.display = '';
+    loaded = true;
+    clearTimeout(timer);
     let canvas, ctx;
     try {
       canvas = document.createElement('canvas');
@@ -251,6 +262,7 @@ function analyzeDetectFile(file) {
       detectImageData = ctx.getImageData(0, 0, img.width, img.height);
     } catch (e) {
       toast('Gagal memproses gambar: ' + e.message, 'error');
+      $('detectInfoTable').innerHTML = '<tr><td colspan="2">Gagal memproses: ' + escapeHtml(e.message) + '</td></tr>';
       return;
     }
     const W = img.width, H = img.height;
