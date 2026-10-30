@@ -1,6 +1,6 @@
-// app.js - client-side, tanpa backend. Algoritma inti (DCT/Hamming) tetap utuh.
+// app.js - client-side, tanpa backend. Algoritma inti DCT + Hamming(7,4) ECC tetap utuh.
 const $ = (id) => document.getElementById(id);
-const N = 8, PI = Math.PI, REP = 7;
+const N = 8, PI = Math.PI, REP = 7, STRENGTH = 100;
 
 function dct2d(block) {
   const out = Array.from({ length: N }, () => new Array(N).fill(0));
@@ -78,8 +78,7 @@ function showPanel(n){
     s.classList.toggle('done', i+1<n);
     s.disabled = i+1>n && i+1!==n;
   });
-  const pct = ((n-1)/2)*100;
-  $('stepFill').style.width = pct+'%';
+  $('stepFill').style.width = (n===1 ? '0%' : '100%');
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -92,8 +91,8 @@ function analyzeFile(file){
   currentFileName=file.name;
   currentImageData=null;
   const url=URL.createObjectURL(file);
-  $('previewImg').src=url;
-  $('cmpOrig').src=url;
+  $('previewImg')&&($('previewImg').src=url);
+  $('cmpOrig')&&($('cmpOrig').src=url);
   const img=new Image();
   img.onload=()=>{
     try {
@@ -108,9 +107,6 @@ function analyzeFile(file){
     const W=img.width,H=img.height;
     const blocks=Math.floor(W/8)*Math.floor(H/8);
     const cap=maxChars(W,H,REP);
-    $('capBlocks').textContent=blocks.toLocaleString();
-    $('capChars').textContent=cap+' karakter';
-    $('chipRedundansi').textContent=`Redundansi: ${REP}×`;
     const rows=[
       ['Nama file',file.name],
       ['Format',(file.type||'image').toUpperCase().replace('IMAGE/','')],
@@ -123,7 +119,7 @@ function analyzeFile(file){
       ['Blok DCT 8×8',blocks.toLocaleString()],
       ['Kapasitas nama (7×)',cap+' karakter'],
     ];
-    $('infoTable').innerHTML=rows.map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('');
+    if($('infoTable')) $('infoTable').innerHTML=rows.map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('');
     $('next1').disabled=false;
     toast('Foto berhasil dianalisis','success');
   };
@@ -244,74 +240,36 @@ function imageDataToBlob(imageData){
 function imageDataToDataURLFallback(imageData){const c=document.createElement('canvas');c.width=imageData.width;c.height=imageData.height;const ctx=c.getContext('2d',{colorSpace:'srgb'});ctx.putImageData(imageData,0,0);return c.toDataURL('image/png');}
 function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-// ---------- Step 1: upload ----------
+// ---------- Step 1 ----------
 setupDrop($('dropZone'),$('fileInput'),analyzeFile);
 $('username').addEventListener('input',()=>{
   $('next1').disabled = !($('username').value.trim() && currentImageData);
 });
-$('next1').addEventListener('click',()=>{
-  if(!$('username').value.trim()){toast('Masukkan nama pengguna terlebih dahulu','error');return;}
-  if(!currentImageData){toast('Upload foto terlebih dahulu','error');return;}
-  showPanel(2);
+
+// ---------- Step 2: proses & hasil ----------
+$('prev1').addEventListener('click',()=>showPanel(1));
+$('newOne').addEventListener('click',()=>{
+  currentImageData=null; watermarkedImageData=null; watermarkedBlob=null; watermarkedDataURL=null; currentFileName='';
+  $('fileInput').value=''; $('detectFileInput').value='';
+  $('username').value='';
+  $('previewImg')&&($('previewImg').src='');
+  $('cmpOrig')&&($('cmpOrig').src='');
+  $('cmpWm')&&($('cmpWm').src='');
+  if($('infoTable')) $('infoTable').innerHTML='';
+  if($('resultTable')) $('resultTable').innerHTML='';
+  $('verifyBox')&&($('verifyBox').classList.add('hidden'));
+  $('dropZone')&&($('dropZone').classList.remove('drag'));
+  $('detectDropZone')&&($('detectDropZone').classList.remove('drag'));
+  $('next1').disabled=true;
+  toast('Siap buat baru','success');
+  showPanel(1);
 });
 
-// ---------- Step 2: info & settings ----------
-const strength=$('strength'), strengthVal=$('strengthVal');
-strengthVal.textContent=strength.value;
-strength.addEventListener('input',()=>{strengthVal.textContent=strength.value;});
-const capCheck=()=>{
-  const username=$('username').value.trim();
-  const cap=maxChars(currentImageData.width,currentImageData.height,REP);
-  $('next2').disabled = !(currentImageData && username && username.length<=cap);
-};
-$('username').addEventListener('input',capCheck);
-$('prev2').addEventListener('click',()=>showPanel(1));
-$('next2').addEventListener('click',()=>{
-  const username=$('username').value.trim();
-  if(!username){toast('Masukkan nama pengguna terlebih dahulu','error');return;}
-  if(!currentImageData){toast('Upload foto terlebih dahulu','error');return;}
-  const cap=maxChars(currentImageData.width,currentImageData.height,REP);
-  if(username.length>cap){toast('Nama terlalu panjang (maks '+cap+' karakter)','error');return;}
-  $('next2').disabled=true;
-  $('next2').textContent='⏳ Memproses...';
-  setTimeout(async ()=>{
-    try{
-      const parseStrength=parseFloat(strength.value)||50;
-      const result=embedImageData(currentImageData,username,parseStrength,REP);
-      watermarkedImageData=result.imageData;
-      let url, blob;
-      try { blob=await imageDataToBlob(result.imageData); url=URL.createObjectURL(blob); }
-      catch(e){ blob=null; url=imageDataToDataURLFallback(result.imageData); }
-      watermarkedBlob=blob;
-      if(watermarkedDataURL && watermarkedDataURL.startsWith('blob:')) URL.revokeObjectURL(watermarkedDataURL);
-      watermarkedDataURL=url;
-      $('cmpWm').src=url;
-      initCompare();
-      const rows=[
-        ['Nama pengguna',username],
-        ['Lebar',result.imageData.width+' px'],
-        ['Tinggi',result.imageData.height+' px'],
-        ['Kekuatan',parseStrength],
-        ['PSNR (kualitas)',result.psnr+' dB'],
-        ['MSE',result.mse],
-        ['Bits terpakai',result.bitsUsed.toLocaleString()],
-        ['Total blok DCT',result.totalBlocks.toLocaleString()],
-        ['Status','Watermark tak kasat mata tersisip'],
-      ];
-      $('resultTable').innerHTML=rows.map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('');
-      $('downloadBtn').href=url;
-      $('downloadBtn').download='watermarked_'+username.replace(/[^a-z0-9]/gi,'_')+'.png';
-      showPanel(3);
-      toast('Berhasil! Nama tersisip & siap diunduh','success');
-    }catch(e){toast(e.message,'error');}
-    finally{$('next2').disabled=false;$('next2').textContent='Sisipkan Nama & Lihat Hasil';}
-  },50);
-});
-
-// ---------- Before/After slider ----------
+// ---------- Step 2: proses & hasil ----------
 function initCompare(){
-  const wrap=$('cmpSliderWrap')||$('cmpSlider').closest('.compare-slider-wrap');
+  const wrap=$('cmpSliderWrap');
   const orig=$('cmpOrig'), wm=$('cmpWm'), slider=$('cmpSlider'), handle=$('cmpHandle');
+  if(!wrap||!orig||!wm||!slider||!handle) return;
   [orig,wm].forEach(img=>{
     img.style.position='absolute';img.style.inset='0';img.style.width='100%';img.style.height='100%';img.style.objectFit='cover';img.style.display='block';
   });
@@ -346,13 +304,56 @@ function initCompare(){
   },{passive:false});
 }
 
-// ---------- Step 3: result ----------
+$('next1').addEventListener('click',(e)=>{
+  e.preventDefault();
+  const username=$('username').value.trim();
+  if(!username){toast('Masukkan nama pengguna terlebih dahulu','error');return;}
+  if(!currentImageData){toast('Upload foto terlebih dahulu','error');return;}
+  const cap=maxChars(currentImageData.width,currentImageData.height,REP);
+  if(username.length>cap){toast('Nama terlalu panjang (maks '+cap+' karakter)','error');return;}
+  $('next1').disabled=true;
+  $('next1').textContent='⏳ Memproses...';
+  setTimeout(async ()=>{
+    try{
+      const result=embedImageData(currentImageData,username,STRENGTH,REP);
+      watermarkedImageData=result.imageData;
+      let url, blob;
+      try { blob=await imageDataToBlob(result.imageData); url=URL.createObjectURL(blob); }
+      catch(e){ blob=null; url=imageDataToDataURLFallback(result.imageData); }
+      watermarkedBlob=blob;
+      if(watermarkedDataURL && watermarkedDataURL.startsWith('blob:')) URL.revokeObjectURL(watermarkedDataURL);
+      watermarkedDataURL=url;
+      $('cmpWm').src=url;
+      initCompare();
+      const rows=[
+        ['Nama pengguna',username],
+        ['Lebar',result.imageData.width+' px'],
+        ['Tinggi',result.imageData.height+' px'],
+        ['PSNR (kualitas)',result.psnr+' dB'],
+        ['MSE',result.mse],
+        ['Bits terpakai',result.bitsUsed.toLocaleString()],
+        ['Total blok DCT',result.totalBlocks.toLocaleString()],
+        ['Status','Watermark tak kasat mata tersisip'],
+      ];
+      if($('resultTable')) $('resultTable').innerHTML=rows.map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('');
+      if($('downloadBtn')){
+        $('downloadBtn').href=url;
+        $('downloadBtn').download='watermarked_'+username.replace(/[^a-z0-9]/gi,'_')+'.png';
+      }
+      showPanel(2);
+      toast('Berhasil! Nama tersisip & siap diunduh','success');
+    }catch(e){toast(e.message,'error');}
+    finally{$('next1').disabled=false;$('next1').textContent='Lanjut ke Hasil';}
+  },50);
+});
+
+// ---------- Verifikasi ----------
 $('verifyBtn').addEventListener('click',()=>{
   if(!watermarkedImageData){toast('Belum ada hasil','error');return;}
   $('verifyBtn').disabled=true;
   $('verifyBtn').textContent='⏳ Memverifikasi...';
-  const box=$('verifyBox'); box.classList.remove('hidden');
-  box.innerHTML='<div class="label">Memproses...</div>';
+  const box=$('verifyBox'); if(box) box.classList.remove('hidden');
+  if(box) box.innerHTML='<div class="label">Memproses...</div>';
   setTimeout(()=>{
     let bestText=null;
     outer2: for (const useECC of [true,false]) {
@@ -370,32 +371,21 @@ $('verifyBtn').addEventListener('click',()=>{
       const username=$('username').value.trim();
       const text=bestText!==null?bestText:'';
       const ok=(text===username);
-      box.innerHTML=`
-        <div class="label">Teks terdeteksi:</div>
-        <div class="value ${ok?'ok':'bad'}">"${escapeHtml(text)}"</div>
-        <div class="${ok?'ok-msg':'bad-msg'}" style="margin-top:.6rem;">${ok?'✅ Verifikasi berhasil — nama cocok':'⚠️ Tidak cocok'}</div>`;
+      if(box){
+        box.innerHTML=`
+          <div class="label">Teks terdeteksi:</div>
+          <div class="value ${ok?'ok':'bad'}">"${escapeHtml(text)}"</div>
+          <div class="${ok?'ok-msg':'bad-msg'}" style="margin-top:.6rem;">${ok?'✅ Verifikasi berhasil — nama cocok':'⚠️ Tidak cocok'}</div>`;
+      }
       toast(ok?'Verifikasi berhasil':'Verifikasi gagal',ok?'success':'error');
     }catch(e){
-      box.innerHTML=`<div class="value bad">${escapeHtml(e.message)}</div>`;
+      if(box) box.innerHTML=`<div class="value bad">${escapeHtml(e.message)}</div>`;
       toast(e.message,'error');
     }finally{
       $('verifyBtn').disabled=false;
       $('verifyBtn').textContent='🔍 Verifikasi Nama';
     }
   },50);
-});
-$('prev3').addEventListener('click',()=>showPanel(2));
-$('newOne').addEventListener('click',()=>{
-  currentImageData=null; watermarkedImageData=null; watermarkedBlob=null; watermarkedDataURL=null; currentFileName='';
-  $('fileInput').value=''; $('detectFileInput').value='';
-  $('username').value='';
-  $('previewImg').src=''; $('cmpOrig').src=''; $('cmpWm').src='';
-  $('infoTable').innerHTML=''; $('resultTable').innerHTML='';
-  $('verifyBox').classList.add('hidden');
-  $('dropZone').classList.remove('drag'); $('detectDropZone').classList.remove('drag');
-  $('next1').disabled=true; $('next2').disabled=true;
-  toast('Siap buat baru','success');
-  showPanel(1);
 });
 
 // ---------- Deteksi watermark ----------
@@ -541,4 +531,3 @@ $('downloadBtn').addEventListener('click', async () => {
 // ---------- Init ----------
 $('startBtn').addEventListener('click',()=>{showPanel(1);});
 $('next1').disabled=true;
-$('next2').disabled=true;
