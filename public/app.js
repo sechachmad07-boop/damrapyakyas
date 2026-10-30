@@ -509,8 +509,12 @@ $('detectBtn').addEventListener('click', () => {
 // ---------- Download (iOS-friendly) ----------
 $('downloadBtn').addEventListener('click', async () => {
   if (!watermarkedDataURL) { toast('Belum ada hasil', 'error'); return; }
-  const filename = 'watermarked_' + ($('username').value.trim().replace(/[^a-z0-9]/gi, '_') || 'foto') + '.png';
-  if (watermarkedBlob && navigator.share && navigator.canShare && navigator.canShare({ files: [new File([watermarkedBlob], filename, { type: 'image/png' })] })) {
+  const format = $('downloadFormat').value;
+  const ext = format === 'image/jpeg' ? 'jpg' : 'png';
+  const filename = 'watermarked_' + ($('username').value.trim().replace(/[^a-z0-9]/gi, '_') || 'foto') + '.' + ext;
+  const quality = format === 'image/jpeg' ? 0.92 : null;
+
+  if (watermarkedBlob && format === 'image/png' && navigator.share && navigator.canShare && navigator.canShare({ files: [new File([watermarkedBlob], filename, { type: 'image/png' })] })) {
     try {
       await navigator.share({ files: [new File([watermarkedBlob], filename, { type: 'image/png' })], title: 'Watermarked' });
       toast('Pilih "Simpan Gambar" di menu share', 'success');
@@ -519,13 +523,26 @@ $('downloadBtn').addEventListener('click', async () => {
       if (e.name !== 'AbortError') toast('Gagal share: ' + e.message, 'error');
     }
   }
-  const a = document.createElement('a');
-  a.href = watermarkedDataURL;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  toast('Download dimulai', 'success');
+
+  // Render hasil ke canvas untuk konversi format
+  const canvas = document.createElement('canvas');
+  canvas.width = watermarkedImageData.width;
+  canvas.height = watermarkedImageData.height;
+  const ctx = canvas.getContext('2d', { colorSpace: 'srgb' });
+  ctx.putImageData(watermarkedImageData, 0, 0);
+
+  try {
+    const dataUrl = canvas.toDataURL(format, quality);
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast('Download dimulai (' + ext.toUpperCase() + ')', 'success');
+  } catch (e) {
+    toast('Gagal download: ' + e.message, 'error');
+  }
 });
 
 // ---------- Init ----------

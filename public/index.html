@@ -98,7 +98,14 @@
           <div class="actions-box">
             <table class="info-table" id="resultTable"></table>
             <div class="btn-row">
-              <button class="btn btn-success" id="downloadBtn">&#9660; Unduh Hasil PNG</button>
+              <div class="download-group">
+                <label class="download-label">Unduh sebagai</label>
+                <select id="downloadFormat" class="format-select">
+                  <option value="image/png">PNG (lossless, aman)</option>
+                  <option value="image/jpeg">JPEG (lebih kecil)</option>
+                </select>
+              </div>
+              <button class="btn btn-success" id="downloadBtn">&#9660; Unduh Hasil</button>
               <button class="btn btn-primary" id="verifyBtn">&#128270; Verifikasi Nama</button>
             </div>
             <div id="verifyBox" class="verify-box hidden"></div>
