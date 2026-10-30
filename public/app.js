@@ -274,16 +274,15 @@ $('verifyBtn').addEventListener('click',()=>{
   $('verifyBox').innerHTML='<div class="label">Memproses...</div>';
   setTimeout(()=>{
     // coba beberapa redundansi (embed pakai rep 5), pilih hasil terbaik
-    let bestText=null, bestScore=-1;
-    for (const useECC of [true,false]) {
+    let bestText=null;
+    outer2: for (const useECC of [true,false]) {
       for (const r of [5,3,1]) {
         try {
           const t=extractImageData(watermarkedImageData,r,useECC);
-          if(t && t.length>0){
-            const score=(t.match(/[a-zA-Z0-9 ]/g)||[]).length;
-            const hasBad=/[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFD]/.test(t);
-            if(!hasBad && score>bestScore){bestText=t;bestScore=score;}
+          if(t && t.length>0 && !/[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFD]/.test(t)){
+            bestText=t; break outer2;
           }
+          if(bestText===null && t && t.length>0) bestText=t;
         } catch(e){/* coba lain */}
       }
     }
@@ -365,26 +364,23 @@ $('detectBtn').addEventListener('click', () => {
   $('detectResult').innerHTML = '<div class="label">Memproses...</div>';
   setTimeout(() => {
     // coba beberapa redundansi, pilih hasil dengan skor terbaik (paling banyak karakter terbaca)
-    let bestText = null, bestRep = null, bestScore = -1, fallbackText = null, fallbackRep = null, fallbackScore = -1, bestValid = false;
-    for (const useECC of [true, false]) {
+    // coba rep 5 dulu (sesuai embed), baru fallback ke 3/1
+    let bestText = null, bestRep = null, bestValid = false;
+    outer: for (const useECC of [true, false]) {
       for (const r of [5, 3, 1]) {
         try {
           const t = extractImageData(detectImageData, r, useECC);
           if (t && t.length > 0) {
-            const score = (t.match(/[a-zA-Z0-9 ]/g) || []).length;
             const hasBad = /[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFD]/.test(t);
-            if (!hasBad && score > bestScore) {
-              bestText = t; bestRep = r; bestScore = score; bestValid = true;
+            if (!hasBad) {
+              bestText = t; bestRep = r; bestValid = true;
+              break outer;
             }
-            if (score > fallbackScore) {
-              fallbackText = t; fallbackRep = r; fallbackScore = score;
-            }
+            // simpan fallback pertama yang punya skor tinggi
+            if (bestText === null) { bestText = t; bestRep = r; bestValid = false; }
           }
         } catch (e) { /* coba lain */ }
       }
-    }
-    if (bestText === null && fallbackText !== null) {
-      bestText = fallbackText; bestRep = fallbackRep; bestValid = false;
     }
     const found = bestText, usedRep = bestRep;
     try {
